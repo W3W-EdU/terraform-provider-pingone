@@ -22,16 +22,16 @@ func DatasourceLicense() *schema.Resource {
 		ReadContext: datasourcePingOneLicenseRead,
 
 		Schema: map[string]*schema.Schema{
-			"organization_id": {
-				Description:      "A string that specifies the organization resource’s unique identifier associated with the license.",
-				Type:             schema.TypeString,
-				Required:         true,
-				ValidateDiagFunc: validation.ToDiagFunc(verify.ValidP1ResourceID),
-			},
 			"license_id": {
 				Description:      "A string that specifies the license resource’s unique identifier.",
 				Type:             schema.TypeString,
 				Required:         true,
+				ValidateDiagFunc: validation.ToDiagFunc(verify.ValidP1ResourceID),
+			},
+			"organization_id": {
+				Description:      "A string that specifies the organization resource’s unique identifier associated with the license.",
+				Type:             schema.TypeString,
+				Optional:         true,
 				ValidateDiagFunc: validation.ToDiagFunc(verify.ValidP1ResourceID),
 			},
 			"name": {
@@ -454,11 +454,16 @@ func datasourcePingOneLicenseRead(ctx context.Context, d *schema.ResourceData, m
 
 	var resp management.License
 
+	organizationId := p1Client.API.Organization.ID
+	if v, ok := d.Get("organization_id").(string); ok && v != "" {
+		organizationId = v
+	}
+
 	licenseResp, diags := sdk.ParseResponse(
 		ctx,
 
 		func() (interface{}, *http.Response, error) {
-			return apiClient.LicensesApi.ReadOneLicense(ctx, d.Get("organization_id").(string), d.Get("license_id").(string)).Execute()
+			return apiClient.LicensesApi.ReadOneLicense(ctx, organizationId, d.Get("license_id").(string)).Execute()
 		},
 		"ReadOneLicense",
 		sdk.DefaultCustomError,

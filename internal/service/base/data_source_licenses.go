@@ -25,7 +25,7 @@ func DatasourceLicenses() *schema.Resource {
 			"organization_id": {
 				Description:      "The ID of the organization.",
 				Type:             schema.TypeString,
-				Required:         true,
+				Optional:         true,
 				ValidateDiagFunc: validation.ToDiagFunc(verify.ValidP1ResourceID),
 			},
 			"scim_filter": {
@@ -80,10 +80,15 @@ func datasourcePingOneLicensesRead(ctx context.Context, d *schema.ResourceData, 
 
 	var filterFunction sdk.SDKInterfaceFunc
 
+	organizationId := p1Client.API.Organization.ID
+	if v, ok := d.Get("organization_id").(string); ok && v != "" {
+		organizationId = v
+	}
+
 	if v, ok := d.GetOk("scim_filter"); ok {
 
 		filterFunction = func() (interface{}, *http.Response, error) {
-			return apiClient.LicensesApi.ReadAllLicenses(ctx, d.Get("organization_id").(string)).Filter(v.(string)).Execute()
+			return apiClient.LicensesApi.ReadAllLicenses(ctx, organizationId).Filter(v.(string)).Execute()
 		}
 
 	}
@@ -91,7 +96,7 @@ func datasourcePingOneLicensesRead(ctx context.Context, d *schema.ResourceData, 
 	if _, ok := d.GetOk("data_filter"); ok {
 
 		filterFunction = func() (interface{}, *http.Response, error) {
-			return apiClient.LicensesApi.ReadAllLicenses(ctx, d.Get("organization_id").(string)).Execute()
+			return apiClient.LicensesApi.ReadAllLicenses(ctx, organizationId).Execute()
 		}
 
 	}
@@ -109,7 +114,7 @@ func datasourcePingOneLicensesRead(ctx context.Context, d *schema.ResourceData, 
 
 	respObject := resp.(*management.EntityArray)
 
-	d.SetId(d.Get("organization_id").(string))
+	d.SetId(organizationId)
 
 	var licensesList []management.License
 
