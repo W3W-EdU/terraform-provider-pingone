@@ -22,7 +22,7 @@ func ResourceApplication() *schema.Resource {
 	return &schema.Resource{
 
 		// This description is used by the documentation generator and the language server.
-		Description: "Resource to create and manage PingOne applications",
+		Description: "Resource to create and manage administrator defined applications in PingOne.",
 
 		CreateContext: resourceApplicationCreate,
 		ReadContext:   resourceApplicationRead,
@@ -63,16 +63,16 @@ func ResourceApplication() *schema.Resource {
 				Type:        schema.TypeSet,
 				Optional:    true,
 				Elem: &schema.Schema{
-					Type:         schema.TypeString,
-					ValidateFunc: validation.StringInSlice([]string{string(management.ENUMAPPLICATIONTAGS_PING_FED_CONNECTION_INTEGRATION)}, false),
+					Type:             schema.TypeString,
+					ValidateDiagFunc: validation.ToDiagFunc(validation.StringInSlice([]string{string(management.ENUMAPPLICATIONTAGS_PING_FED_CONNECTION_INTEGRATION)}, false)),
 				},
 				ConflictsWith: []string{"external_link_options", "saml_options"},
 			},
 			"login_page_url": {
-				Description:      "A string that specifies the custom login page URL for the application. If you set the `login_page_url` property for applications in an environment that sets a custom domain, the URL should include the top-level domain and at least one additional domain level. **Warning** To avoid issues with third-party cookies in some browsers, a custom domain must be used, giving your PingOne environment the same parent domain as your authentication application. For more information about custom domains, see Custom domains.",
+				Description:      "A string that specifies the custom login page URL for the application. If you set the `login_page_url` property for applications in an environment that sets a custom domain, the URL should include the top-level domain and at least one additional domain level. **Warning** To avoid issues with third-party cookies in some browsers, a custom domain must be used, giving your PingOne environment the same parent domain as your authentication application. For more information about custom domains, see Custom domains.  The provided URL is expected to use the `https://` schema.  The `http` schema is permitted where the host is `localhost` or `127.0.0.1`.",
 				Type:             schema.TypeString,
 				Optional:         true,
-				ValidateDiagFunc: validation.ToDiagFunc(validation.IsURLWithHTTPS),
+				ValidateDiagFunc: validation.ToDiagFunc(validation.StringMatch(regexp.MustCompile(`^(http:\/\/((localhost)|(127\.0\.0\.1))(:[0-9]+)?(\/?(.+))?$|(https:\/\/).*)`), "Expected value to have a url with schema of \"https\".  \"http\" urls are permitted when using localhost hosts \"localhost\" and \"127.0.0.1\".")),
 				ConflictsWith:    []string{"external_link_options"},
 			},
 			"icon": {
@@ -98,12 +98,12 @@ func ResourceApplication() *schema.Resource {
 				},
 			},
 			"access_control_role_type": {
-				Description:   fmt.Sprintf("A string that specifies the user role required to access the application. A user is an admin user if the user has one or more of the following roles Organization Admin, Environment Admin, Identity Data Admin, or Client Application Developer. Options are `%s`.", string(management.ENUMAPPLICATIONACCESSCONTROLTYPE_ADMIN_USERS_ONLY)),
-				Type:          schema.TypeString,
-				Optional:      true,
-				Computed:      true,
-				ValidateFunc:  validation.StringInSlice([]string{string(management.ENUMAPPLICATIONACCESSCONTROLTYPE_ADMIN_USERS_ONLY)}, false),
-				ConflictsWith: []string{"external_link_options"},
+				Description:      fmt.Sprintf("A string that specifies the user role required to access the application. A user is an admin user if the user has one or more of the following roles Organization Admin, Environment Admin, Identity Data Admin, or Client Application Developer. Options are `%s`.", string(management.ENUMAPPLICATIONACCESSCONTROLTYPE_ADMIN_USERS_ONLY)),
+				Type:             schema.TypeString,
+				Optional:         true,
+				Computed:         true,
+				ValidateDiagFunc: validation.ToDiagFunc(validation.StringInSlice([]string{string(management.ENUMAPPLICATIONACCESSCONTROLTYPE_ADMIN_USERS_ONLY)}, false)),
+				ConflictsWith:    []string{"external_link_options"},
 			},
 			"access_control_group_options": {
 				Description: "Group access control settings.",
@@ -113,10 +113,10 @@ func ResourceApplication() *schema.Resource {
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
 						"type": {
-							Description:  "A string that specifies the group type required to access the application. Options are `ANY_GROUP` (the actor must belong to at least one group listed in the `groups` property) and `ALL_GROUPS` (the actor must belong to all groups listed in the `groups` property).",
-							Type:         schema.TypeString,
-							Required:     true,
-							ValidateFunc: validation.StringInSlice([]string{"ANY_GROUP", "ALL_GROUPS"}, false),
+							Description:      "A string that specifies the group type required to access the application. Options are `ANY_GROUP` (the actor must belong to at least one group listed in the `groups` property) and `ALL_GROUPS` (the actor must belong to all groups listed in the `groups` property).",
+							Type:             schema.TypeString,
+							Required:         true,
+							ValidateDiagFunc: validation.ToDiagFunc(validation.StringInSlice([]string{"ANY_GROUP", "ALL_GROUPS"}, false)),
 						},
 						"groups": {
 							Description: "A set that specifies the group IDs for the groups the actor must belong to for access to the application.",
@@ -144,7 +144,7 @@ func ResourceApplication() *schema.Resource {
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
 						"home_page_url": {
-							Description:      "A string that specifies the custom home page URL for the application.",
+							Description:      "A string that specifies the custom home page URL for the application.  Both `http://` and `https://` URLs are permitted.",
 							Type:             schema.TypeString,
 							Required:         true,
 							ValidateDiagFunc: validation.ToDiagFunc(validation.IsURLWithHTTPorHTTPS),
@@ -161,36 +161,36 @@ func ResourceApplication() *schema.Resource {
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
 						"type": {
-							Description:  fmt.Sprintf("A string that specifies the type associated with the application.  Options are `%s`, `%s`, `%s`, `%s`, `%s` and `%s`.", string(management.ENUMAPPLICATIONTYPE_WEB_APP), string(management.ENUMAPPLICATIONTYPE_NATIVE_APP), string(management.ENUMAPPLICATIONTYPE_SINGLE_PAGE_APP), string(management.ENUMAPPLICATIONTYPE_WORKER), string(management.ENUMAPPLICATIONTYPE_CUSTOM_APP), string(management.ENUMAPPLICATIONTYPE_SERVICE)),
-							Type:         schema.TypeString,
-							Required:     true,
-							ForceNew:     true,
-							ValidateFunc: validation.StringInSlice([]string{string(management.ENUMAPPLICATIONTYPE_WEB_APP), string(management.ENUMAPPLICATIONTYPE_NATIVE_APP), string(management.ENUMAPPLICATIONTYPE_SINGLE_PAGE_APP), string(management.ENUMAPPLICATIONTYPE_WORKER), string(management.ENUMAPPLICATIONTYPE_CUSTOM_APP), string(management.ENUMAPPLICATIONTYPE_SERVICE)}, false),
+							Description:      fmt.Sprintf("A string that specifies the type associated with the application.  Options are `%s`, `%s`, `%s`, `%s`, `%s` and `%s`.", string(management.ENUMAPPLICATIONTYPE_WEB_APP), string(management.ENUMAPPLICATIONTYPE_NATIVE_APP), string(management.ENUMAPPLICATIONTYPE_SINGLE_PAGE_APP), string(management.ENUMAPPLICATIONTYPE_WORKER), string(management.ENUMAPPLICATIONTYPE_CUSTOM_APP), string(management.ENUMAPPLICATIONTYPE_SERVICE)),
+							Type:             schema.TypeString,
+							Required:         true,
+							ForceNew:         true,
+							ValidateDiagFunc: validation.ToDiagFunc(validation.StringInSlice([]string{string(management.ENUMAPPLICATIONTYPE_WEB_APP), string(management.ENUMAPPLICATIONTYPE_NATIVE_APP), string(management.ENUMAPPLICATIONTYPE_SINGLE_PAGE_APP), string(management.ENUMAPPLICATIONTYPE_WORKER), string(management.ENUMAPPLICATIONTYPE_CUSTOM_APP), string(management.ENUMAPPLICATIONTYPE_SERVICE)}, false)),
 						},
 						"home_page_url": {
-							Description:      "A string that specifies the custom home page URL for the application.",
+							Description:      "A string that specifies the custom home page URL for the application.  The provided URL is expected to use the `https://` schema.  The `http` schema is permitted where the host is `localhost` or `127.0.0.1`.",
 							Type:             schema.TypeString,
 							Optional:         true,
-							ValidateDiagFunc: validation.ToDiagFunc(validation.IsURLWithHTTPS),
+							ValidateDiagFunc: validation.ToDiagFunc(validation.StringMatch(regexp.MustCompile(`^(http:\/\/((localhost)|(127\.0\.0\.1))(:[0-9]+)?(\/?(.+))?$|(https:\/\/).*)`), "Expected value to have a url with schema of \"https\".  \"http\" urls are permitted when using localhost hosts \"localhost\" and \"127.0.0.1\".")),
 						},
 						"initiate_login_uri": {
-							Description:      "A string that specifies the URI to use for third-parties to begin the sign-on process for the application. If specified, PingOne redirects users to this URI to initiate SSO to PingOne. The application is responsible for implementing the relevant OIDC flow when the initiate login URI is requested. This property is required if you want the application to appear in the PingOne Application Portal. See the OIDC specification section of [Initiating Login from a Third Party](https://openid.net/specs/openid-connect-core-1_0.html#ThirdPartyInitiatedLogin) for more information.",
+							Description:      "A string that specifies the URI to use for third-parties to begin the sign-on process for the application. If specified, PingOne redirects users to this URI to initiate SSO to PingOne. The application is responsible for implementing the relevant OIDC flow when the initiate login URI is requested. This property is required if you want the application to appear in the PingOne Application Portal. See the OIDC specification section of [Initiating Login from a Third Party](https://openid.net/specs/openid-connect-core-1_0.html#ThirdPartyInitiatedLogin) for more information.  The provided URL is expected to use the `https://` schema.  The `http` schema is permitted where the host is `localhost` or `127.0.0.1`.",
 							Type:             schema.TypeString,
 							Optional:         true,
-							ValidateDiagFunc: validation.ToDiagFunc(validation.IsURLWithHTTPS),
+							ValidateDiagFunc: validation.ToDiagFunc(validation.StringMatch(regexp.MustCompile(`^(http:\/\/((localhost)|(127\.0\.0\.1))(:[0-9]+)?(\/?(.+))?$|(https:\/\/).*)`), "Expected value to have a url with schema of \"https\".  \"http\" urls are permitted when using localhost hosts \"localhost\" and \"127.0.0.1\".")),
 						},
 						"target_link_uri": {
-							Description:      "The URI for the application. If specified, PingOne will redirect application users to this URI after a user is authenticated. In the PingOne admin console, this becomes the value of the `target_link_uri` parameter used for the Initiate Single Sign-On URL field.",
+							Description:      "The URI for the application. If specified, PingOne will redirect application users to this URI after a user is authenticated. In the PingOne admin console, this becomes the value of the `target_link_uri` parameter used for the Initiate Single Sign-On URL field.  Both `http://` and `https://` URLs are permitted as well as custom mobile native schema (e.g., `org.bxretail.app://target`).",
 							Type:             schema.TypeString,
 							Optional:         true,
-							ValidateDiagFunc: validation.ToDiagFunc(validation.IsURLWithHTTPS),
+							ValidateDiagFunc: validation.ToDiagFunc(validation.StringMatch(regexp.MustCompile(`^(\S+:\/\/).+`), "Expected value to have a url with schema of \"https\", \"http\" or a custom mobile native schema (e.g., `org.bxretail.app://target`).")),
 						},
 						"grant_types": {
 							Description: fmt.Sprintf("A list that specifies the grant type for the authorization request.  Options are `%s`, `%s`, `%s` and `%s`.", string(management.ENUMAPPLICATIONOIDCGRANTTYPE_AUTHORIZATION_CODE), string(management.ENUMAPPLICATIONOIDCGRANTTYPE_IMPLICIT), string(management.ENUMAPPLICATIONOIDCGRANTTYPE_REFRESH_TOKEN), string(management.ENUMAPPLICATIONOIDCGRANTTYPE_CLIENT_CREDENTIALS)),
 							Type:        schema.TypeSet,
 							Elem: &schema.Schema{
-								Type:         schema.TypeString,
-								ValidateFunc: validation.StringInSlice([]string{string(management.ENUMAPPLICATIONOIDCGRANTTYPE_AUTHORIZATION_CODE), string(management.ENUMAPPLICATIONOIDCGRANTTYPE_IMPLICIT), string(management.ENUMAPPLICATIONOIDCGRANTTYPE_REFRESH_TOKEN), string(management.ENUMAPPLICATIONOIDCGRANTTYPE_CLIENT_CREDENTIALS)}, false),
+								Type:             schema.TypeString,
+								ValidateDiagFunc: validation.ToDiagFunc(validation.StringInSlice([]string{string(management.ENUMAPPLICATIONOIDCGRANTTYPE_AUTHORIZATION_CODE), string(management.ENUMAPPLICATIONOIDCGRANTTYPE_IMPLICIT), string(management.ENUMAPPLICATIONOIDCGRANTTYPE_REFRESH_TOKEN), string(management.ENUMAPPLICATIONOIDCGRANTTYPE_CLIENT_CREDENTIALS)}, false)),
 							},
 							Required: true,
 						},
@@ -198,31 +198,30 @@ func ResourceApplication() *schema.Resource {
 							Description: fmt.Sprintf("A list that specifies the code or token type returned by an authorization request.  Note that `%s` cannot be used in an authorization request with `%s` or `%s` because PingOne does not currently support OIDC hybrid flows.", management.ENUMAPPLICATIONOIDCRESPONSETYPE_CODE, management.ENUMAPPLICATIONOIDCRESPONSETYPE_TOKEN, management.ENUMAPPLICATIONOIDCRESPONSETYPE_ID_TOKEN),
 							Type:        schema.TypeSet,
 							Elem: &schema.Schema{
-								Type:         schema.TypeString,
-								ValidateFunc: validation.StringInSlice([]string{string(management.ENUMAPPLICATIONOIDCRESPONSETYPE_CODE), string(management.ENUMAPPLICATIONOIDCRESPONSETYPE_TOKEN), string(management.ENUMAPPLICATIONOIDCRESPONSETYPE_ID_TOKEN)}, false),
+								Type:             schema.TypeString,
+								ValidateDiagFunc: validation.ToDiagFunc(validation.StringInSlice([]string{string(management.ENUMAPPLICATIONOIDCRESPONSETYPE_CODE), string(management.ENUMAPPLICATIONOIDCRESPONSETYPE_TOKEN), string(management.ENUMAPPLICATIONOIDCRESPONSETYPE_ID_TOKEN)}, false)),
 							},
 							Optional: true,
-							//Computed: true,
 						},
 						"token_endpoint_authn_method": {
-							Description:  fmt.Sprintf("A string that specifies the client authentication methods supported by the token endpoint.  Options are `%s`, `%s` and `%s`.", string(management.ENUMAPPLICATIONOIDCTOKENAUTHMETHOD_NONE), string(management.ENUMAPPLICATIONOIDCTOKENAUTHMETHOD_CLIENT_SECRET_BASIC), string(management.ENUMAPPLICATIONOIDCTOKENAUTHMETHOD_CLIENT_SECRET_POST)),
-							Type:         schema.TypeString,
-							Required:     true,
-							ValidateFunc: validation.StringInSlice([]string{string(management.ENUMAPPLICATIONOIDCTOKENAUTHMETHOD_NONE), string(management.ENUMAPPLICATIONOIDCTOKENAUTHMETHOD_CLIENT_SECRET_BASIC), string(management.ENUMAPPLICATIONOIDCTOKENAUTHMETHOD_CLIENT_SECRET_POST)}, false),
+							Description:      fmt.Sprintf("A string that specifies the client authentication methods supported by the token endpoint.  Options are `%s`, `%s` and `%s`.", string(management.ENUMAPPLICATIONOIDCTOKENAUTHMETHOD_NONE), string(management.ENUMAPPLICATIONOIDCTOKENAUTHMETHOD_CLIENT_SECRET_BASIC), string(management.ENUMAPPLICATIONOIDCTOKENAUTHMETHOD_CLIENT_SECRET_POST)),
+							Type:             schema.TypeString,
+							Required:         true,
+							ValidateDiagFunc: validation.ToDiagFunc(validation.StringInSlice([]string{string(management.ENUMAPPLICATIONOIDCTOKENAUTHMETHOD_NONE), string(management.ENUMAPPLICATIONOIDCTOKENAUTHMETHOD_CLIENT_SECRET_BASIC), string(management.ENUMAPPLICATIONOIDCTOKENAUTHMETHOD_CLIENT_SECRET_POST)}, false)),
 						},
 						"pkce_enforcement": {
-							Description:  fmt.Sprintf("A string that specifies how `PKCE` request parameters are handled on the authorize request.  Options are `%s`, `%s` and `%s`.", string(management.ENUMAPPLICATIONOIDCPKCEOPTION_OPTIONAL), string(management.ENUMAPPLICATIONOIDCPKCEOPTION_REQUIRED), string(management.ENUMAPPLICATIONOIDCPKCEOPTION_S256_REQUIRED)),
-							Type:         schema.TypeString,
-							Optional:     true,
-							Default:      string(management.ENUMAPPLICATIONOIDCPKCEOPTION_OPTIONAL),
-							ValidateFunc: validation.StringInSlice([]string{string(management.ENUMAPPLICATIONOIDCPKCEOPTION_OPTIONAL), string(management.ENUMAPPLICATIONOIDCPKCEOPTION_REQUIRED), string(management.ENUMAPPLICATIONOIDCPKCEOPTION_S256_REQUIRED)}, false),
+							Description:      fmt.Sprintf("A string that specifies how `PKCE` request parameters are handled on the authorize request.  Options are `%s`, `%s` and `%s`.", string(management.ENUMAPPLICATIONOIDCPKCEOPTION_OPTIONAL), string(management.ENUMAPPLICATIONOIDCPKCEOPTION_REQUIRED), string(management.ENUMAPPLICATIONOIDCPKCEOPTION_S256_REQUIRED)),
+							Type:             schema.TypeString,
+							Optional:         true,
+							Default:          string(management.ENUMAPPLICATIONOIDCPKCEOPTION_OPTIONAL),
+							ValidateDiagFunc: validation.ToDiagFunc(validation.StringInSlice([]string{string(management.ENUMAPPLICATIONOIDCPKCEOPTION_OPTIONAL), string(management.ENUMAPPLICATIONOIDCPKCEOPTION_REQUIRED), string(management.ENUMAPPLICATIONOIDCPKCEOPTION_S256_REQUIRED)}, false)),
 						},
 						"redirect_uris": {
-							Description: "A string that specifies the callback URI for the authentication response.",
+							Description: "A list of strings that specifies the allowed callback URIs for the authentication response.    The provided URLs are expected to use the `https://` schema, or a custom mobile native schema (e.g., `org.bxretail.app://callback`).  The `http` schema is only permitted where the host is `localhost` or `127.0.0.1`.",
 							Type:        schema.TypeSet,
 							Elem: &schema.Schema{
 								Type:             schema.TypeString,
-								ValidateDiagFunc: validation.ToDiagFunc(validation.IsURLWithHTTPS),
+								ValidateDiagFunc: validation.ToDiagFunc(validation.StringMatch(regexp.MustCompile(`^(http:\/\/((localhost)|(127\.0\.0\.1))(:[0-9]+)?(\/?(.+))?$|(\S+:\/\/).+)`), "Expected value to have a url with schema of \"https\" or a custom mobile native schema (e.g., `org.bxretail.app://callback`).  \"http\" urls are permitted when using localhost hosts \"localhost\" and \"127.0.0.1\".")),
 							},
 							Optional: true,
 						},
@@ -233,33 +232,33 @@ func ResourceApplication() *schema.Resource {
 							Default:     false,
 						},
 						"post_logout_redirect_uris": {
-							Description: "A string that specifies the URLs that the browser can be redirected to after logout.",
+							Description: "A list of strings that specifies the URLs that the browser can be redirected to after logout.  The provided URLs are expected to use the `https://`, `http://` schema, or a custom mobile native schema (e.g., `org.bxretail.app://logout`).",
 							Type:        schema.TypeSet,
 							Elem: &schema.Schema{
 								Type:             schema.TypeString,
-								ValidateDiagFunc: validation.ToDiagFunc(validation.IsURLWithHTTPS),
+								ValidateDiagFunc: validation.ToDiagFunc(validation.StringMatch(regexp.MustCompile(`^(\S+:\/\/).+`), "Expected value to have a url with schema of \"https\", \"http\" or a custom mobile native schema (e.g., `org.bxretail.app://logout`).")),
 							},
 							Optional: true,
 						},
 						"refresh_token_duration": {
-							Description:  "An integer that specifies the lifetime in seconds of the refresh token. If a value is not provided, the default value is 2592000, or 30 days. Valid values are between 60 and 2147483647. If the refresh_token_rolling_duration property is specified for the application, then this property must be less than or equal to the value of refreshTokenRollingDuration. After this property is set, the value cannot be nullified. This value is used to generate the value for the exp claim when minting a new refresh token.",
-							Type:         schema.TypeInt,
-							Optional:     true,
-							Default:      2592000,
-							ValidateFunc: validation.IntBetween(60, 2147483647),
+							Description:      "An integer that specifies the lifetime in seconds of the refresh token. If a value is not provided, the default value is `2592000`, or 30 days. Valid values are between `60` and `2147483647`. If the `refresh_token_rolling_duration` property is specified for the application, then this property value must be less than or equal to the value of `refresh_token_rolling_duration`. After this property is set, the value cannot be nullified - this will force recreation of the resource. This value is used to generate the value for the exp claim when minting a new refresh token.",
+							Type:             schema.TypeInt,
+							Optional:         true,
+							Default:          2592000,
+							ValidateDiagFunc: validation.ToDiagFunc(validation.IntBetween(60, 2147483647)),
 						},
 						"refresh_token_rolling_duration": {
-							Description:  "An integer that specifies the number of seconds a refresh token can be exchanged before re-authentication is required. If a value is not provided, the default value is 15552000, or 180 days. Valid values are between 60 and 2147483647. After this property is set, the value cannot be nullified. This value is used to generate the value for the exp claim when minting a new refresh token.",
-							Type:         schema.TypeInt,
-							Optional:     true,
-							Default:      15552000,
-							ValidateFunc: validation.IntBetween(60, 2147483647),
+							Description:      "An integer that specifies the number of seconds a refresh token can be exchanged before re-authentication is required. If a value is not provided, the default value is `15552000`, or 180 days. Valid values are between `60` and `2147483647`. After this property is set, the value cannot be nullified - this will force recreation of the resource. This value is used to generate the value for the exp claim when minting a new refresh token.",
+							Type:             schema.TypeInt,
+							Optional:         true,
+							Default:          15552000,
+							ValidateDiagFunc: validation.ToDiagFunc(validation.IntBetween(60, 2147483647)),
 						},
 						"refresh_token_rolling_grace_period_duration": {
-							Description:  "The number of seconds that a refresh token may be reused after having been exchanged for a new set of tokens. This is useful in the case of network errors on the client. Valid values are between 0 and 86400 seconds. Null is treated the same as 0.",
-							Type:         schema.TypeInt,
-							Optional:     true,
-							ValidateFunc: validation.IntBetween(0, 86400),
+							Description:      "The number of seconds that a refresh token may be reused after having been exchanged for a new set of tokens. This is useful in the case of network errors on the client. Valid values are between `0` and `86400` seconds. `Null` is treated the same as `0`.",
+							Type:             schema.TypeInt,
+							Optional:         true,
+							ValidateDiagFunc: validation.ToDiagFunc(validation.IntBetween(0, 86400)),
 						},
 						"client_id": {
 							Description: "A string that specifies the application ID used to authenticate to the authorization server.",
@@ -272,6 +271,22 @@ func ResourceApplication() *schema.Resource {
 							Computed:    true,
 							Sensitive:   true,
 						},
+						"certificate_based_authentication": {
+							Description: "Certificate based authentication settings. This parameter block can only be set where the application's `type` parameter is set to `NATIVE_APP`.",
+							Type:        schema.TypeList,
+							MaxItems:    1,
+							Optional:    true,
+							Elem: &schema.Resource{
+								Schema: map[string]*schema.Schema{
+									"key_id": {
+										Description:      "A string that represents a PingOne ID for the issuance certificate key.  The key must be of type `ISSUANCE`.",
+										Type:             schema.TypeString,
+										Required:         true,
+										ValidateDiagFunc: validation.ToDiagFunc(verify.ValidP1ResourceID),
+									},
+								},
+							},
+						},
 						"support_unsigned_request_object": {
 							Description: "A boolean that specifies whether the request query parameter JWT is allowed to be unsigned. If false or null (default), an unsigned request object is not allowed.",
 							Type:        schema.TypeBool,
@@ -283,29 +298,65 @@ func ResourceApplication() *schema.Resource {
 							Type:        schema.TypeList,
 							MaxItems:    1,
 							Optional:    true,
-							Computed:    true,
+							DiffSuppressFunc: func(k, old, new string, d *schema.ResourceData) bool {
+								// If we have an app configured, then we need to compute the diff.
+								if _, ok := d.GetOk("oidc_options.0.mobile_app.0.bundle_id"); ok {
+									return false
+								}
+
+								if _, ok := d.GetOk("oidc_options.0.mobile_app.0.package_name"); ok {
+									return false
+								}
+
+								if _, ok := d.GetOk("oidc_options.0.mobile_app.0.huawei_app_id"); ok {
+									return false
+								}
+
+								if _, ok := d.GetOk("oidc_options.0.mobile_app.0.huawei_package_name"); ok {
+									return false
+								}
+
+								// If no app configured, we can suppress the diff.
+								return true
+							},
 							Elem: &schema.Resource{
 								Schema: map[string]*schema.Schema{
 									"bundle_id": {
-										Description:      "A string that specifies the bundle associated with the application, for push notifications in native apps. The value of the bundle_id property is unique per environment, and once defined, is immutable.  this setting overrides the top-level `bundle_id` field",
+										Description:      "A string that specifies the bundle associated with the application, for push notifications in native apps. The value of the `bundle_id` property is unique per environment, and once defined, is immutable.  Changing this value will trigger a replacement plan of this resource.",
 										Type:             schema.TypeString,
 										Optional:         true,
 										ForceNew:         true,
 										ValidateDiagFunc: validation.ToDiagFunc(validation.StringIsNotEmpty),
 									},
 									"package_name": {
-										Description:      "A string that specifies the package name associated with the application, for push notifications in native apps. The value of the `package_name` property is unique per environment, and once defined, is immutable.  this setting overrides the top-level `package_name` field.",
+										Description:      "A string that specifies the package name associated with the application, for push notifications in native apps. The value of the `package_name` property is unique per environment, and once defined, is immutable.  Changing this value will trigger a replacement plan of this resource.",
 										Type:             schema.TypeString,
 										Optional:         true,
 										ForceNew:         true,
 										ValidateDiagFunc: validation.ToDiagFunc(validation.StringIsNotEmpty),
 									},
+									"huawei_app_id": {
+										Description:      "The unique identifier for the app on the device and in the Huawei Mobile Service AppGallery. The value of this property is unique per environment, and once defined, is immutable.  Required with `huawei_package_name`.  Changing this value will trigger a replacement plan of this resource.",
+										Type:             schema.TypeString,
+										Optional:         true,
+										ForceNew:         true,
+										RequiredWith:     []string{"oidc_options.0.mobile_app.0.huawei_app_id", "oidc_options.0.mobile_app.0.huawei_package_name"},
+										ValidateDiagFunc: validation.ToDiagFunc(validation.StringIsNotEmpty),
+									},
+									"huawei_package_name": {
+										Description:      "The package name associated with the application, for push notifications in native apps. The value of this property is unique per environment, and once defined, is immutable.  Required with `huawei_app_id`.  Changing this value will trigger a replacement plan of this resource.",
+										Type:             schema.TypeString,
+										Optional:         true,
+										ForceNew:         true,
+										RequiredWith:     []string{"oidc_options.0.mobile_app.0.huawei_app_id", "oidc_options.0.mobile_app.0.huawei_package_name"},
+										ValidateDiagFunc: validation.ToDiagFunc(validation.StringIsNotEmpty),
+									},
 									"passcode_refresh_seconds": {
-										Description:  "The amount of time a passcode should be displayed before being replaced with a new passcode - must be between 30 and 60.",
-										Type:         schema.TypeInt,
-										Optional:     true,
-										Computed:     true,
-										ValidateFunc: validation.IntBetween(30, 60),
+										Description:      "The amount of time a passcode should be displayed before being replaced with a new passcode - must be between 30 and 60.",
+										Type:             schema.TypeInt,
+										Optional:         true,
+										Default:          30,
+										ValidateDiagFunc: validation.ToDiagFunc(validation.IntBetween(30, 60)),
 									},
 									"universal_app_link": {
 										Description:      "A string that specifies a URI prefix that enables direct triggering of the mobile application when scanning a QR code. The URI prefix can be set to a universal link with a valid value (which can be a URL address that starts with `HTTP://` or `HTTPS://`, such as `https://www.bxretail.org`), or an app schema, which is just a string and requires no special validation.",
@@ -328,7 +379,7 @@ func ResourceApplication() *schema.Resource {
 													Default:     false,
 												},
 												"excluded_platforms": {
-													Description: fmt.Sprintf("You can enable device integrity checking separately for Android and iOS by setting `enabled` to `true` and then using `excluded_platforms` to specify the OS where you do not want to use device integrity checking. The values to use are `%s` and `%s` (all upper case). Note that this is implemented as an array even though currently you can only include a single value.", string(management.ENUMMOBILEINTEGRITYDETECTIONPLATFORM_GOOGLE), string(management.ENUMMOBILEINTEGRITYDETECTIONPLATFORM_IOS)),
+													Description: fmt.Sprintf("You can enable device integrity checking separately for Android and iOS by setting `enabled` to `true` and then using `excluded_platforms` to specify the OS where you do not want to use device integrity checking. The values to use are `%s` and `%s` (all upper case). Note that this is implemented as an array even though currently you can only include a single value.  If `%s` is not included in this list, the `google_play` attribute block must be configured.", string(management.ENUMMOBILEINTEGRITYDETECTIONPLATFORM_GOOGLE), string(management.ENUMMOBILEINTEGRITYDETECTIONPLATFORM_IOS), string(management.ENUMMOBILEINTEGRITYDETECTIONPLATFORM_GOOGLE)),
 													Type:        schema.TypeList,
 													MaxItems:    1,
 													Optional:    true,
@@ -351,11 +402,57 @@ func ResourceApplication() *schema.Resource {
 																Required:    true,
 															},
 															"units": {
-																Description:  fmt.Sprintf("A string that specifies the time units of the `amount` parameter. Options are `%s` and `%s`.", string(management.ENUMDURATIONUNITMINSHOURS_MINUTES), string(management.ENUMDURATIONUNITMINSHOURS_HOURS)),
-																Type:         schema.TypeString,
-																Optional:     true,
-																Default:      string(management.ENUMDURATIONUNITMINSHOURS_MINUTES),
-																ValidateFunc: validation.StringInSlice([]string{string(management.ENUMDURATIONUNITMINSHOURS_MINUTES), string(management.ENUMDURATIONUNITMINSHOURS_HOURS)}, false),
+																Description:      fmt.Sprintf("A string that specifies the time units of the `amount` parameter. Options are `%s` and `%s`.", string(management.ENUMDURATIONUNITMINSHOURS_MINUTES), string(management.ENUMDURATIONUNITMINSHOURS_HOURS)),
+																Type:             schema.TypeString,
+																Optional:         true,
+																Default:          string(management.ENUMDURATIONUNITMINSHOURS_MINUTES),
+																ValidateDiagFunc: validation.ToDiagFunc(validation.StringInSlice([]string{string(management.ENUMDURATIONUNITMINSHOURS_MINUTES), string(management.ENUMDURATIONUNITMINSHOURS_HOURS)}, false)),
+															},
+														},
+													},
+												},
+												"google_play": {
+													Description: "Required when `excluded_platforms` is unset or does not include `GOOGLE`.  A single block that describes Google Play Integrity API credential settings for Android device integrity detection.",
+													Type:        schema.TypeList,
+													MaxItems:    1,
+													Optional:    true,
+													Elem: &schema.Resource{
+														Schema: map[string]*schema.Schema{
+															"decryption_key": {
+																Description: "Play Integrity verdict decryption key from your Google Play Services account. This parameter must be provided if you have set `verification_type` to `INTERNAL`.  Cannot be set with `service_account_credentials_json`.",
+																Type:        schema.TypeString,
+																Optional:    true,
+																Sensitive:   true,
+																DiffSuppressFunc: func(k, old, new string, d *schema.ResourceData) bool {
+																	return old == "DUMMY_SUPPRESS_VALUE"
+																},
+																ConflictsWith: []string{"oidc_options.0.mobile_app.0.integrity_detection.0.google_play.0.service_account_credentials_json"},
+															},
+															"service_account_credentials_json": {
+																Description: "Contents of the JSON file that represents your Service Account Credentials. This parameter must be provided if you have set `verification_type` to `GOOGLE`.  Cannot be set with `decryption_key` or `verification_key`.",
+																Type:        schema.TypeString,
+																Optional:    true,
+																Sensitive:   true,
+																DiffSuppressFunc: func(k, old, new string, d *schema.ResourceData) bool {
+																	return old == "DUMMY_SUPPRESS_VALUE"
+																},
+																ConflictsWith: []string{"oidc_options.0.mobile_app.0.integrity_detection.0.google_play.0.decryption_key", "oidc_options.0.mobile_app.0.integrity_detection.0.google_play.0.verification_key"},
+															},
+															"verification_key": {
+																Description: "Play Integrity verdict signature verification key from your Google Play Services account. This parameter must be provided if you have set `verification_type` to `INTERNAL`.  Cannot be set with `service_account_credentials_json`.",
+																Type:        schema.TypeString,
+																Optional:    true,
+																Sensitive:   true,
+																DiffSuppressFunc: func(k, old, new string, d *schema.ResourceData) bool {
+																	return old == "DUMMY_SUPPRESS_VALUE"
+																},
+																ConflictsWith: []string{"oidc_options.0.mobile_app.0.integrity_detection.0.google_play.0.service_account_credentials_json"},
+															},
+															"verification_type": {
+																Description:      "The type of verification that should be used. The possible values are `GOOGLE` and `INTERNAL`. Using internal verification will not count against your Google API call quota. The value you select for this attribute determines what other parameters you must provide. When set to `GOOGLE`, you must provide `service_account_credentials_json`. When set to `INTERNAL`, you must provide both `decryption_key` and `verification_key`.",
+																Type:             schema.TypeString,
+																Required:         true,
+																ValidateDiagFunc: validation.ToDiagFunc(validation.StringInSlice([]string{string(management.ENUMAPPLICATIONNATIVEGOOGLEPLAYVERIFICATIONTYPE_GOOGLE), string(management.ENUMAPPLICATIONNATIVEGOOGLEPLAYVERIFICATIONTYPE_INTERNAL)}, false)),
 															},
 														},
 													},
@@ -367,18 +464,20 @@ func ResourceApplication() *schema.Resource {
 							},
 						},
 						"bundle_id": {
-							Description:      "A string that specifies the bundle associated with the application, for push notifications in native apps. The value of the `bundle_id` property is unique per environment, and once defined, is immutable; any change will force recreation of the applicationr resource.",
+							Description:      "**Deprecation Notice** This field is deprecated and will be removed in a future release. Use `oidc_options.mobile_app.bundle_id` instead. A string that specifies the bundle associated with the application, for push notifications in native apps. The value of the `bundle_id` property is unique per environment, and once defined, is immutable; any change will force recreation of the application resource.",
 							Type:             schema.TypeString,
 							Optional:         true,
-							ForceNew:         true,
+							Computed:         true,
 							ValidateDiagFunc: validation.ToDiagFunc(validation.StringIsNotEmpty),
+							Deprecated:       "This field is deprecated and will be removed in a future release. Use `oidc_options.mobile_app.bundle_id` instead.",
 						},
 						"package_name": {
-							Description:      "A string that specifies the package name associated with the application, for push notifications in native apps. The value of the `package_name` property is unique per environment, and once defined, is immutable.",
+							Description:      "**Deprecation Notice** This field is deprecated and will be removed in a future release. Use `oidc_options.mobile_app.package_name` instead. A string that specifies the package name associated with the application, for push notifications in native apps. The value of the `package_name` property is unique per environment, and once defined, is immutable; any change will force recreation of the application resource.",
 							Type:             schema.TypeString,
 							Optional:         true,
-							ForceNew:         true,
+							Computed:         true,
 							ValidateDiagFunc: validation.ToDiagFunc(validation.StringIsNotEmpty),
+							Deprecated:       "This field is deprecated and will be removed in a future release. Use `oidc_options.mobile_app.package_name` instead.",
 						},
 					},
 				},
@@ -398,12 +497,12 @@ func ResourceApplication() *schema.Resource {
 							ValidateDiagFunc: validation.ToDiagFunc(validation.IsURLWithHTTPS),
 						},
 						"type": {
-							Description:  fmt.Sprintf("A string that specifies the type associated with the application.  Options are `%s` and `%s`.", string(management.ENUMAPPLICATIONTYPE_WEB_APP), string(management.ENUMAPPLICATIONTYPE_CUSTOM_APP)),
-							Type:         schema.TypeString,
-							Optional:     true,
-							Default:      string(management.ENUMAPPLICATIONTYPE_WEB_APP),
-							ForceNew:     true,
-							ValidateFunc: validation.StringInSlice([]string{string(management.ENUMAPPLICATIONTYPE_WEB_APP), string(management.ENUMAPPLICATIONTYPE_CUSTOM_APP)}, false),
+							Description:      fmt.Sprintf("A string that specifies the type associated with the application.  Options are `%s` and `%s`.", string(management.ENUMAPPLICATIONTYPE_WEB_APP), string(management.ENUMAPPLICATIONTYPE_CUSTOM_APP)),
+							Type:             schema.TypeString,
+							Optional:         true,
+							Default:          string(management.ENUMAPPLICATIONTYPE_WEB_APP),
+							ForceNew:         true,
+							ValidateDiagFunc: validation.ToDiagFunc(validation.StringInSlice([]string{string(management.ENUMAPPLICATIONTYPE_WEB_APP), string(management.ENUMAPPLICATIONTYPE_CUSTOM_APP)}, false)),
 						},
 						"acs_urls": {
 							Description: "A list of string that specifies the Assertion Consumer Service URLs. The first URL in the list is used as default (there must be at least one URL).",
@@ -428,7 +527,34 @@ func ResourceApplication() *schema.Resource {
 							Description:      "An ID for the certificate key pair to be used by the identity provider to sign assertions and responses. If this property is omitted, the default signing certificate for the environment is used.",
 							Type:             schema.TypeString,
 							Optional:         true,
+							Computed:         true,
+							ConflictsWith:    []string{"saml_options.0.idp_signing_key"},
+							Deprecated:       "The `idp_signing_key_id` attribute is deprecated and will be removed in the next major release.  Please use the `idp_signing_key` block going forward.",
 							ValidateDiagFunc: validation.ToDiagFunc(verify.ValidP1ResourceID),
+						},
+						"idp_signing_key": {
+							Description:   "SAML application assertion/response signing key settings.  Use with `assertion_signed_enabled` to enable assertion signing and/or `response_is_signed` to enable response signing.  It's highly recommended, and best practice, to define signing key settings for the configured SAML application.  However if this property is omitted, the default signing certificate for the environment is used.  This parameter will become a required field in the next major release of the provider.",
+							Type:          schema.TypeList,
+							MaxItems:      1,
+							Optional:      true,
+							Computed:      true,
+							ConflictsWith: []string{"saml_options.0.idp_signing_key_id"},
+							Elem: &schema.Resource{
+								Schema: map[string]*schema.Schema{
+									"algorithm": {
+										Description:      fmt.Sprintf("Specifies the signature algorithm of the key. For RSA keys, options are `%s`, `%s` and `%s`. For elliptical curve (EC) keys, options are `%s`, `%s` and `%s`.", string(management.ENUMCERTIFICATEKEYSIGNAGUREALGORITHM_SHA256WITH_RSA), string(management.ENUMCERTIFICATEKEYSIGNAGUREALGORITHM_SHA384WITH_RSA), string(management.ENUMCERTIFICATEKEYSIGNAGUREALGORITHM_SHA512WITH_RSA), string(management.ENUMCERTIFICATEKEYSIGNAGUREALGORITHM_SHA256WITH_ECDSA), string(management.ENUMCERTIFICATEKEYSIGNAGUREALGORITHM_SHA384WITH_ECDSA), string(management.ENUMCERTIFICATEKEYSIGNAGUREALGORITHM_SHA512WITH_ECDSA)),
+										Type:             schema.TypeString,
+										Required:         true,
+										ValidateDiagFunc: validation.ToDiagFunc(validation.StringInSlice([]string{string(management.ENUMCERTIFICATEKEYSIGNAGUREALGORITHM_SHA256WITH_RSA), string(management.ENUMCERTIFICATEKEYSIGNAGUREALGORITHM_SHA384WITH_RSA), string(management.ENUMCERTIFICATEKEYSIGNAGUREALGORITHM_SHA512WITH_RSA), string(management.ENUMCERTIFICATEKEYSIGNAGUREALGORITHM_SHA256WITH_ECDSA), string(management.ENUMCERTIFICATEKEYSIGNAGUREALGORITHM_SHA384WITH_ECDSA), string(management.ENUMCERTIFICATEKEYSIGNAGUREALGORITHM_SHA512WITH_ECDSA)}, false)),
+									},
+									"key_id": {
+										Description:      "An ID for the certificate key pair to be used by the identity provider to sign assertions and responses.",
+										Type:             schema.TypeString,
+										Required:         true,
+										ValidateDiagFunc: validation.ToDiagFunc(verify.ValidP1ResourceID),
+									},
+								},
+							},
 						},
 						"nameid_format": {
 							Description: "A string that specifies the format of the Subject NameID attibute in the SAML assertion.",
@@ -442,21 +568,29 @@ func ResourceApplication() *schema.Resource {
 							Default:     false,
 						},
 						"slo_binding": {
-							Description:  fmt.Sprintf("A string that specifies the binding protocol to be used for the logout response. Options are `%s` and `%s`.  Existing configurations with no data default to `%s`.", string(management.ENUMAPPLICATIONSAMLSLOBINDING_REDIRECT), string(management.ENUMAPPLICATIONSAMLSLOBINDING_POST), management.ENUMAPPLICATIONSAMLSLOBINDING_POST),
-							Type:         schema.TypeString,
-							ValidateFunc: validation.StringInSlice([]string{string(management.ENUMAPPLICATIONSAMLSLOBINDING_REDIRECT), string(management.ENUMAPPLICATIONSAMLSLOBINDING_POST)}, false),
-							Optional:     true,
-							Default:      "HTTP_POST",
+							Description:      fmt.Sprintf("A string that specifies the binding protocol to be used for the logout response. Options are `%s` and `%s`.  Existing configurations with no data default to `%s`.", string(management.ENUMAPPLICATIONSAMLSLOBINDING_REDIRECT), string(management.ENUMAPPLICATIONSAMLSLOBINDING_POST), string(management.ENUMAPPLICATIONSAMLSLOBINDING_POST)),
+							Type:             schema.TypeString,
+							ValidateDiagFunc: validation.ToDiagFunc(validation.StringInSlice([]string{string(management.ENUMAPPLICATIONSAMLSLOBINDING_REDIRECT), string(management.ENUMAPPLICATIONSAMLSLOBINDING_POST)}, false)),
+							Optional:         true,
+							Default:          string(management.ENUMAPPLICATIONSAMLSLOBINDING_POST),
 						},
 						"slo_endpoint": {
-							Description: "A string that specifies the logout endpoint URL. This is an optional property. However, if a sloEndpoint logout endpoint URL is not defined, logout actions result in an error.",
-							Type:        schema.TypeString,
-							Optional:    true,
+							Description:      "A string that specifies the logout endpoint URL. This is an optional property. However, if a logout endpoint URL is not defined, logout actions result in an error.",
+							Type:             schema.TypeString,
+							Optional:         true,
+							ValidateDiagFunc: validation.ToDiagFunc(validation.IsURLWithHTTPorHTTPS),
 						},
 						"slo_response_endpoint": {
-							Description: "A string that specifies the endpoint URL to submit the logout response. If a value is not provided, the sloEndpoint property value is used to submit SLO response.",
-							Type:        schema.TypeString,
-							Optional:    true,
+							Description:      "A string that specifies the endpoint URL to submit the logout response. If a value is not provided, the `slo_endpoint` property value is used to submit SLO response.",
+							Type:             schema.TypeString,
+							Optional:         true,
+							ValidateDiagFunc: validation.ToDiagFunc(validation.IsURLWithHTTPorHTTPS),
+						},
+						"slo_window": {
+							Description:      "An integer that defines how long (hours) PingOne can exchange logout messages with the application, specifically a logout request from the application, since the initial request. The minimum value is `1` hour and the maximum is `24` hours.",
+							Type:             schema.TypeInt,
+							Optional:         true,
+							ValidateDiagFunc: validation.ToDiagFunc(validation.IntBetween(1, 24)),
 						},
 						"sp_entity_id": {
 							Description: "A string that specifies the service provider entity ID used to lookup the application. This is a required property and is unique within the environment.",
@@ -482,9 +616,7 @@ func ResourceApplication() *schema.Resource {
 func resourceApplicationCreate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	p1Client := meta.(*client.Client)
 	apiClient := p1Client.API.ManagementAPIClient
-	ctx = context.WithValue(ctx, management.ContextServerVariables, map[string]string{
-		"suffix": p1Client.API.Region.URLSuffix,
-	})
+
 	var diags diag.Diagnostics
 
 	applicationRequest := &management.CreateApplicationRequest{}
@@ -519,7 +651,7 @@ func resourceApplicationCreate(ctx context.Context, d *schema.ResourceData, meta
 	resp, diags := sdk.ParseResponse(
 		ctx,
 
-		func() (interface{}, *http.Response, error) {
+		func() (any, *http.Response, error) {
 			return apiClient.ApplicationsApi.CreateApplication(ctx, d.Get("environment_id").(string)).CreateApplicationRequest(*applicationRequest).Execute()
 		},
 		"CreateApplication",
@@ -554,15 +686,13 @@ func resourceApplicationCreate(ctx context.Context, d *schema.ResourceData, meta
 func resourceApplicationRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	p1Client := meta.(*client.Client)
 	apiClient := p1Client.API.ManagementAPIClient
-	ctx = context.WithValue(ctx, management.ContextServerVariables, map[string]string{
-		"suffix": p1Client.API.Region.URLSuffix,
-	})
+
 	var diags diag.Diagnostics
 
 	resp, diags := sdk.ParseResponse(
 		ctx,
 
-		func() (interface{}, *http.Response, error) {
+		func() (any, *http.Response, error) {
 			return apiClient.ApplicationsApi.ReadOneApplication(ctx, d.Get("environment_id").(string), d.Id()).Execute()
 		},
 		"ReadOneApplication",
@@ -585,7 +715,7 @@ func resourceApplicationRead(ctx context.Context, d *schema.ResourceData, meta i
 		respSecret, diags := sdk.ParseResponse(
 			ctx,
 
-			func() (interface{}, *http.Response, error) {
+			func() (any, *http.Response, error) {
 				return apiClient.ApplicationSecretApi.ReadApplicationSecret(ctx, d.Get("environment_id").(string), d.Id()).Execute()
 			},
 			"ReadApplicationSecret",
@@ -828,9 +958,7 @@ func resourceApplicationRead(ctx context.Context, d *schema.ResourceData, meta i
 func resourceApplicationUpdate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	p1Client := meta.(*client.Client)
 	apiClient := p1Client.API.ManagementAPIClient
-	ctx = context.WithValue(ctx, management.ContextServerVariables, map[string]string{
-		"suffix": p1Client.API.Region.URLSuffix,
-	})
+
 	var diags diag.Diagnostics
 
 	applicationRequest := &management.UpdateApplicationRequest{}
@@ -865,12 +993,12 @@ func resourceApplicationUpdate(ctx context.Context, d *schema.ResourceData, meta
 	_, diags = sdk.ParseResponse(
 		ctx,
 
-		func() (interface{}, *http.Response, error) {
+		func() (any, *http.Response, error) {
 			return apiClient.ApplicationsApi.UpdateApplication(ctx, d.Get("environment_id").(string), d.Id()).UpdateApplicationRequest(*applicationRequest).Execute()
 		},
 		"UpdateApplication",
 		applicationWriteCustomError,
-		sdk.DefaultRetryable,
+		nil,
 	)
 	if diags.HasError() {
 		return diags
@@ -882,21 +1010,19 @@ func resourceApplicationUpdate(ctx context.Context, d *schema.ResourceData, meta
 func resourceApplicationDelete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	p1Client := meta.(*client.Client)
 	apiClient := p1Client.API.ManagementAPIClient
-	ctx = context.WithValue(ctx, management.ContextServerVariables, map[string]string{
-		"suffix": p1Client.API.Region.URLSuffix,
-	})
+
 	var diags diag.Diagnostics
 
 	_, diags = sdk.ParseResponse(
 		ctx,
 
-		func() (interface{}, *http.Response, error) {
+		func() (any, *http.Response, error) {
 			r, err := apiClient.ApplicationsApi.DeleteApplication(ctx, d.Get("environment_id").(string), d.Id()).Execute()
 			return nil, r, err
 		},
 		"DeleteApplication",
 		sdk.CustomErrorResourceNotFoundWarning,
-		sdk.DefaultRetryable,
+		nil,
 	)
 	if diags.HasError() {
 		return diags
@@ -1013,9 +1139,7 @@ func expandApplicationOIDC(d *schema.ResourceData) (*management.ApplicationOIDC,
 		}
 
 		if v1, ok := oidcOptions["pkce_enforcement"].(string); ok && v1 != "" {
-			if application.GetType() == management.ENUMAPPLICATIONTYPE_WEB_APP || application.GetType() == management.ENUMAPPLICATIONTYPE_SINGLE_PAGE_APP || application.GetType() == management.ENUMAPPLICATIONTYPE_CUSTOM_APP || application.GetType() == management.ENUMAPPLICATIONTYPE_SERVICE {
-				application.SetPkceEnforcement(management.EnumApplicationOIDCPKCEOption(v1))
-			}
+			application.SetPkceEnforcement(management.EnumApplicationOIDCPKCEOption(v1))
 		}
 
 		if v1, ok := oidcOptions["redirect_uris"].(*schema.Set); ok && v1 != nil && len(v1.List()) > 0 && v1.List()[0] != nil {
@@ -1084,6 +1208,18 @@ func expandApplicationOIDC(d *schema.ResourceData) (*management.ApplicationOIDC,
 
 		application.SetAssignActorRoles(false)
 
+		if v1, ok := oidcOptions["certificate_based_authentication"].([]interface{}); ok && v1 != nil && len(v1) > 0 && v1[0] != nil {
+			if *applicationType != management.ENUMAPPLICATIONTYPE_NATIVE_APP {
+				diags = append(diags, diag.Diagnostic{
+					Severity: diag.Error,
+					Summary:  fmt.Sprintf("`certificate_based_authentication` can only be set with applications that have a `type` value of `%s`.", management.ENUMAPPLICATIONTYPE_NATIVE_APP),
+				})
+				return nil, diags
+			}
+
+			application.SetKerberos(*expandKerberos(v1[0].(map[string]interface{})))
+		}
+
 		if v1, ok := oidcOptions["support_unsigned_request_object"].(bool); ok {
 			application.SetSupportUnsignedRequestObject(v1)
 		}
@@ -1130,6 +1266,14 @@ func expandGrantTypes(s *schema.Set) ([]management.EnumApplicationOIDCGrantType,
 	return grantTypes, refreshToken
 }
 
+func expandKerberos(s map[string]interface{}) *management.ApplicationOIDCAllOfKerberos {
+
+	key := management.NewApplicationOIDCAllOfKerberosKey(s["key_id"].(string))
+	kerberos := management.NewApplicationOIDCAllOfKerberos(*key)
+
+	return kerberos
+}
+
 func expandMobile(s map[string]interface{}) (*management.ApplicationOIDCAllOfMobile, diag.Diagnostics) {
 	var diags diag.Diagnostics
 
@@ -1140,6 +1284,14 @@ func expandMobile(s map[string]interface{}) (*management.ApplicationOIDCAllOfMob
 
 	if v, ok := s["package_name"].(string); ok && v != "" {
 		mobile.SetPackageName(v)
+	}
+
+	if v, ok := s["huawei_app_id"].(string); ok && v != "" {
+		mobile.SetHuaweiAppId(v)
+	}
+
+	if v, ok := s["huawei_package_name"].(string); ok && v != "" {
+		mobile.SetHuaweiPackageName(v)
 	}
 
 	if v, ok := s["passcode_refresh_seconds"].(int); ok {
@@ -1166,11 +1318,15 @@ func expandMobile(s map[string]interface{}) (*management.ApplicationOIDCAllOfMob
 			integrityDetection.SetMode(mode)
 		}
 
+		googleVerificationIncluded := true
 		if j, okJ := obj["excluded_platforms"].([]interface{}); okJ && len(j) > 0 && j[0] != nil {
 			list := make([]management.EnumMobileIntegrityDetectionPlatform, 0)
 
 			for _, platform := range j {
 				list = append(list, management.EnumMobileIntegrityDetectionPlatform(platform.(string)))
+				if platform == string(management.ENUMMOBILEINTEGRITYDETECTIONPLATFORM_GOOGLE) {
+					googleVerificationIncluded = false
+				}
 			}
 
 			integrityDetection.SetExcludedPlatforms(list)
@@ -1182,7 +1338,26 @@ func expandMobile(s map[string]interface{}) (*management.ApplicationOIDCAllOfMob
 			if integrityDetection.GetMode() == management.ENUMENABLEDSTATUS_ENABLED {
 				diags = append(diags, diag.Diagnostic{
 					Severity: diag.Error,
-					Summary:  "Attribute `cache_duration` is required when the mobile integrity check is enabled in the application",
+					Summary:  "Attribute block `cache_duration` is required when the mobile integrity check is enabled in the application",
+				})
+
+				return nil, diags
+			}
+		}
+
+		if j, okJ := obj["google_play"].([]interface{}); okJ && len(j) > 0 && j[0] != nil {
+			googlePlay, d := expandMobileIntegrityGooglePlay(j[0].(map[string]interface{}))
+			if d.HasError() {
+				return nil, d
+			}
+
+			integrityDetection.SetGooglePlay(*googlePlay)
+		} else {
+
+			if integrityDetection.GetMode() == management.ENUMENABLEDSTATUS_ENABLED && googleVerificationIncluded {
+				diags = append(diags, diag.Diagnostic{
+					Severity: diag.Error,
+					Summary:  "Attribute block `google_play` is required when the mobile integrity check is enabled in the application and `excluded_platforms` is unset, or `excluded_platforms` is not configured with `GOOGLE`.",
 				})
 
 				return nil, diags
@@ -1202,7 +1377,53 @@ func expandMobileIntegrityCacheDuration(s map[string]interface{}) management.App
 	obj.SetUnits(management.EnumDurationUnitMinsHours(s["units"].(string)))
 
 	return obj
+}
 
+func expandMobileIntegrityGooglePlay(s map[string]interface{}) (*management.ApplicationOIDCAllOfMobileIntegrityDetectionGooglePlay, diag.Diagnostics) {
+	var diags diag.Diagnostics
+
+	obj := management.NewApplicationOIDCAllOfMobileIntegrityDetectionGooglePlay()
+
+	obj.SetVerificationType(management.EnumApplicationNativeGooglePlayVerificationType(s["verification_type"].(string)))
+
+	if obj.GetVerificationType() == management.ENUMAPPLICATIONNATIVEGOOGLEPLAYVERIFICATIONTYPE_GOOGLE {
+		if v, ok := s["service_account_credentials_json"].(string); ok && v != "" {
+			obj.SetServiceAccountCredentials(v)
+		} else {
+			diags = append(diags, diag.Diagnostic{
+				Severity: diag.Error,
+				Summary:  "Attribute `service_account_credentials_json` is required when the `verification_type` is set to `GOOGLE`.",
+			})
+
+			return nil, diags
+		}
+	}
+
+	if obj.GetVerificationType() == management.ENUMAPPLICATIONNATIVEGOOGLEPLAYVERIFICATIONTYPE_INTERNAL {
+		if v, ok := s["decryption_key"].(string); ok && v != "" {
+			obj.SetDecryptionKey(v)
+		} else {
+			diags = append(diags, diag.Diagnostic{
+				Severity: diag.Error,
+				Summary:  "Attribute `decryption_key` is required when the `verification_type` is set to `INTERNAL`.",
+			})
+
+			return nil, diags
+		}
+
+		if v, ok := s["verification_key"].(string); ok && v != "" {
+			obj.SetVerificationKey(v)
+		} else {
+			diags = append(diags, diag.Diagnostic{
+				Severity: diag.Error,
+				Summary:  "Attribute `verification_key` is required when the `verification_type` is set to `INTERNAL`.",
+			})
+
+			return nil, diags
+		}
+	}
+
+	return obj, diags
 }
 
 // SAML
@@ -1270,6 +1491,16 @@ func expandApplicationSAML(d *schema.ResourceData) (*management.ApplicationSAML,
 			application.SetIdpSigning(*management.NewApplicationSAMLAllOfIdpSigning(*management.NewApplicationSAMLAllOfIdpSigningKey(v1)))
 		}
 
+		if v1, ok := samlOptions["idp_signing_key"].([]interface{}); ok && v1 != nil && len(v1) > 0 && v1[0] != nil {
+
+			idpSigningOptions := v1[0].(map[string]interface{})
+
+			idpSigning := *management.NewApplicationSAMLAllOfIdpSigning(*management.NewApplicationSAMLAllOfIdpSigningKey(idpSigningOptions["key_id"].(string)))
+			idpSigning.SetAlgorithm(management.EnumCertificateKeySignagureAlgorithm(idpSigningOptions["algorithm"].(string)))
+
+			application.SetIdpSigning(idpSigning)
+		}
+
 		if v1, ok := samlOptions["nameid_format"].(string); ok && v1 != "" {
 			application.SetNameIdFormat(v1)
 		}
@@ -1292,6 +1523,10 @@ func expandApplicationSAML(d *schema.ResourceData) (*management.ApplicationSAML,
 
 		if v1, ok := samlOptions["slo_response_endpoint"].(string); ok && v1 != "" {
 			application.SetSloResponseEndpoint(v1)
+		}
+
+		if v1, ok := samlOptions["slo_window"].(int); ok && v1 > 0 {
+			application.SetSloWindow(int32(v1))
 		}
 
 		if v1, ok := samlOptions["sp_verification_certificate_ids"].(*schema.Set); ok && v1 != nil && len(v1.List()) > 0 && v1.List()[0] != nil {
@@ -1526,6 +1761,12 @@ func flattenOIDCOptions(application *management.ApplicationOIDC, secret *managem
 		item["client_secret"] = nil
 	}
 
+	if v, ok := application.GetKerberosOk(); ok {
+		item["certificate_based_authentication"] = flattenKerberos(v)
+	} else {
+		item["certificate_based_authentication"] = nil
+	}
+
 	if v, ok := application.GetSupportUnsignedRequestObjectOk(); ok {
 		item["support_unsigned_request_object"] = v
 	} else {
@@ -1570,6 +1811,20 @@ func flattenGrantTypes(application *management.ApplicationOIDC) []string {
 	return returnGrants
 }
 
+func flattenKerberos(kerberos *management.ApplicationOIDCAllOfKerberos) interface{} {
+
+	item := map[string]interface{}{}
+
+	if v, ok := kerberos.GetKeyOk(); ok {
+		item["key_id"] = v.GetId()
+	} else {
+		item["key_id"] = nil
+	}
+
+	items := make([]interface{}, 0)
+	return append(items, item)
+}
+
 func flattenMobile(mobile *management.ApplicationOIDCAllOfMobile) (interface{}, diag.Diagnostics) {
 	var diags diag.Diagnostics
 
@@ -1585,6 +1840,18 @@ func flattenMobile(mobile *management.ApplicationOIDCAllOfMobile) (interface{}, 
 		item["package_name"] = v
 	} else {
 		item["package_name"] = nil
+	}
+
+	if v, ok := mobile.GetHuaweiAppIdOk(); ok {
+		item["huawei_app_id"] = v
+	} else {
+		item["huawei_app_id"] = nil
+	}
+
+	if v, ok := mobile.GetHuaweiPackageNameOk(); ok {
+		item["huawei_package_name"] = v
+	} else {
+		item["huawei_package_name"] = nil
 	}
 
 	if v, ok := mobile.GetPasscodeRefreshDurationOk(); ok {
@@ -1655,6 +1922,26 @@ func flattenMobileIntegrityDetection(obj *management.ApplicationOIDCAllOfMobileI
 		item["cache_duration"] = nil
 	}
 
+	if v, ok := obj.GetGooglePlayOk(); ok {
+		googlePlay := map[string]interface{}{
+			"verification_type": v.GetVerificationType(),
+		}
+
+		if v.GetVerificationType() == management.ENUMAPPLICATIONNATIVEGOOGLEPLAYVERIFICATIONTYPE_INTERNAL {
+			googlePlay["decryption_key"] = "DUMMY_SUPPRESS_VALUE"
+			googlePlay["verification_key"] = "DUMMY_SUPPRESS_VALUE"
+		}
+
+		if v.GetVerificationType() == management.ENUMAPPLICATIONNATIVEGOOGLEPLAYVERIFICATIONTYPE_GOOGLE {
+			googlePlay["service_account_credentials_json"] = "DUMMY_SUPPRESS_VALUE"
+		}
+
+		googlePlays := make([]interface{}, 0)
+		item["google_play"] = append(googlePlays, googlePlay)
+	} else {
+		item["google_play"] = nil
+	}
+
 	items := make([]interface{}, 0)
 	return append(items, item)
 }
@@ -1682,15 +1969,12 @@ func flattenSAMLOptions(application *management.ApplicationSAML) interface{} {
 		item["assertion_signed_enabled"] = nil
 	}
 
-	var signingKeyID interface{}
 	if v, ok := application.GetIdpSigningOk(); ok {
-		if j, okJ := v.GetKeyOk(); okJ {
-			if k, okK := j.GetIdOk(); okK {
-				signingKeyID = k
-			}
-		}
+		item["idp_signing_key"], item["idp_signing_key_id"] = flattenIdpSigningOptions(v)
+	} else {
+		item["idp_signing_key"] = nil
+		item["idp_signing_key_id"] = nil
 	}
-	item["idp_signing_key_id"] = signingKeyID
 
 	if v, ok := application.GetNameIdFormatOk(); ok {
 		item["nameid_format"] = v
@@ -1722,6 +2006,12 @@ func flattenSAMLOptions(application *management.ApplicationSAML) interface{} {
 		item["slo_response_endpoint"] = nil
 	}
 
+	if v, ok := application.GetSloWindowOk(); ok {
+		item["slo_window"] = v
+	} else {
+		item["slo_window"] = nil
+	}
+
 	if v, ok := application.SpVerification.GetCertificatesOk(); ok {
 
 		idList := make([]string, 0)
@@ -1737,4 +2027,28 @@ func flattenSAMLOptions(application *management.ApplicationSAML) interface{} {
 	items := make([]interface{}, 0)
 	return append(items, item)
 
+}
+
+func flattenIdpSigningOptions(idpSigning *management.ApplicationSAMLAllOfIdpSigning) (interface{}, *string) {
+
+	item := map[string]interface{}{}
+
+	var signingKeyID *string
+
+	if v, ok := idpSigning.GetAlgorithmOk(); ok {
+		item["algorithm"] = string(*v)
+	} else {
+		item["algorithm"] = nil
+	}
+
+	item["key_id"] = nil
+	if v, ok := idpSigning.GetKeyOk(); ok {
+		if v1, ok := v.GetIdOk(); ok {
+			item["key_id"] = v1
+			signingKeyID = v1
+		}
+	}
+
+	items := make([]interface{}, 0)
+	return append(items, item), signingKeyID
 }

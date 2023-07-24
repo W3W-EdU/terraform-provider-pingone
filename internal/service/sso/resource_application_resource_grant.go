@@ -6,229 +6,444 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
+	"github.com/hashicorp/terraform-plugin-framework-validators/setvalidator"
+	"github.com/hashicorp/terraform-plugin-framework/diag"
+	"github.com/hashicorp/terraform-plugin-framework/path"
+	"github.com/hashicorp/terraform-plugin-framework/resource"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
+	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/patrickcping/pingone-go-sdk-v2/management"
-	client "github.com/pingidentity/terraform-provider-pingone/internal/client"
+	"github.com/patrickcping/pingone-go-sdk-v2/pingone/model"
+	"github.com/pingidentity/terraform-provider-pingone/internal/framework"
 	"github.com/pingidentity/terraform-provider-pingone/internal/sdk"
 	"github.com/pingidentity/terraform-provider-pingone/internal/verify"
 )
 
-func ResourceApplicationResourceGrant() *schema.Resource {
-	return &schema.Resource{
+// Types
+type ApplicationResourceGrantResource struct {
+	client *management.APIClient
+	region model.RegionMapping
+}
 
+type ApplicationResourceGrantResourceModel struct {
+	Id            types.String `tfsdk:"id"`
+	EnvironmentId types.String `tfsdk:"environment_id"`
+	ApplicationId types.String `tfsdk:"application_id"`
+	ResourceId    types.String `tfsdk:"resource_id"`
+	Scopes        types.Set    `tfsdk:"scopes"`
+}
+
+// Framework interfaces
+var (
+	_ resource.Resource                = &ApplicationResourceGrantResource{}
+	_ resource.ResourceWithConfigure   = &ApplicationResourceGrantResource{}
+	_ resource.ResourceWithImportState = &ApplicationResourceGrantResource{}
+)
+
+// New Object
+func NewApplicationResourceGrantResource() resource.Resource {
+	return &ApplicationResourceGrantResource{}
+}
+
+// Metadata
+func (r *ApplicationResourceGrantResource) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
+	resp.TypeName = req.ProviderTypeName + "_application_resource_grant"
+}
+
+// Schema.
+func (r *ApplicationResourceGrantResource) Schema(ctx context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse) {
+
+	const attrMinLength = 1
+
+	resp.Schema = schema.Schema{
 		// This description is used by the documentation generator and the language server.
-		Description: "Resource to create and manage a resource grant for an application configured in PingOne.",
+		Description: "Resource to create and manage a resource grant for administrator defined applications or built-in system applications configured in PingOne.",
 
-		CreateContext: resourcePingOneApplicationResourceGrantCreate,
-		ReadContext:   resourcePingOneApplicationResourceGrantRead,
-		UpdateContext: resourcePingOneApplicationResourceGrantUpdate,
-		DeleteContext: resourcePingOneApplicationResourceGrantDelete,
+		Attributes: map[string]schema.Attribute{
+			"id": framework.Attr_ID(),
 
-		Importer: &schema.ResourceImporter{
-			StateContext: resourcePingOneApplicationResourceGrantImport,
-		},
+			"environment_id": framework.Attr_LinkID(
+				framework.SchemaAttributeDescriptionFromMarkdown("The ID of the environment to create the application resource grant in."),
+			),
 
-		Schema: map[string]*schema.Schema{
-			"environment_id": {
-				Description:      "The ID of the environment to create the application resource grant in.",
-				Type:             schema.TypeString,
-				Required:         true,
-				ValidateDiagFunc: validation.ToDiagFunc(verify.ValidP1ResourceID),
-				ForceNew:         true,
-			},
-			"application_id": {
-				Description:      "The ID of the application to create the resource grant for.",
-				Type:             schema.TypeString,
-				Required:         true,
-				ForceNew:         true,
-				ValidateDiagFunc: validation.ToDiagFunc(verify.ValidP1ResourceID),
-			},
-			"resource_id": {
-				Description:      "The ID of the protected resource associated with this grant.",
-				Type:             schema.TypeString,
-				Required:         true,
-				ForceNew:         true,
-				ValidateDiagFunc: validation.ToDiagFunc(verify.ValidP1ResourceID),
-			},
-			"scopes": {
-				Description: "A list of IDs of the scopes associated with this grant.",
-				Type:        schema.TypeSet,
+			"application_id": framework.Attr_LinkID(
+				framework.SchemaAttributeDescriptionFromMarkdown("The ID of the application to create the resource grant for.  The value for `application_id` may come from the `id` attribute of the `pingone_application` or `pingone_system_application` resources or data sources."),
+			),
+
+			"resource_id": framework.Attr_LinkID(
+				framework.SchemaAttributeDescriptionFromMarkdown("The ID of the protected resource associated with this grant."),
+			),
+
+			"scopes": schema.SetAttribute{
+				Description: framework.SchemaAttributeDescriptionFromMarkdown("A list of IDs of the scopes associated with this grant.  When using the `openid` resource, the `openid` scope should not be included.").Description,
 				Required:    true,
-				Elem: &schema.Schema{
-					Type:             schema.TypeString,
-					ValidateDiagFunc: validation.ToDiagFunc(verify.ValidP1ResourceID),
+
+				ElementType: types.StringType,
+
+				Validators: []validator.Set{
+					setvalidator.SizeAtLeast(attrMinLength),
+					setvalidator.ValueStringsAre(
+						verify.P1ResourceIDValidator(),
+					),
 				},
-				Set: schema.HashString,
 			},
 		},
 	}
 }
 
-func resourcePingOneApplicationResourceGrantCreate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
-	p1Client := meta.(*client.Client)
-	apiClient := p1Client.API.ManagementAPIClient
-	ctx = context.WithValue(ctx, management.ContextServerVariables, map[string]string{
-		"suffix": p1Client.API.Region.URLSuffix,
-	})
-	var diags diag.Diagnostics
+func (r *ApplicationResourceGrantResource) Configure(ctx context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
+	// Prevent panic if the provider has not been configured.
+	if req.ProviderData == nil {
+		return
+	}
 
-	resource := *management.NewApplicationResourceGrantResource(d.Get("resource_id").(string))
-	scopes := expandApplicationResourceGrant(d.Get("scopes").(*schema.Set))
+	resourceConfig, ok := req.ProviderData.(framework.ResourceType)
+	if !ok {
+		resp.Diagnostics.AddError(
+			"Unexpected Resource Configure Type",
+			fmt.Sprintf("Expected the provider client, got: %T. Please report this issue to the provider maintainers.", req.ProviderData),
+		)
 
-	applicationResourceGrant := *management.NewApplicationResourceGrant(resource, scopes)
+		return
+	}
 
-	resp, diags := sdk.ParseResponse(
+	preparedClient, err := prepareClient(ctx, resourceConfig)
+	if err != nil {
+		resp.Diagnostics.AddError(
+			"Client not initialized",
+			err.Error(),
+		)
+
+		return
+	}
+
+	r.client = preparedClient
+	r.region = resourceConfig.Client.API.Region
+}
+
+func (r *ApplicationResourceGrantResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
+	var plan, state ApplicationResourceGrantResourceModel
+
+	if r.client == nil {
+		resp.Diagnostics.AddError(
+			"Client not initialized",
+			"Expected the PingOne client, got nil.  Please report this issue to the provider maintainers.")
+		return
+	}
+
+	// Read Terraform plan data into the model
+	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	// Validate the plan
+	resp.Diagnostics.Append(plan.validate(ctx, r.client)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	// Build the model for the API
+	applicationResourceGrant, d := plan.expand(ctx)
+	resp.Diagnostics.Append(d...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	// Run the API call
+	var response *management.ApplicationResourceGrant
+	resp.Diagnostics.Append(framework.ParseResponse(
 		ctx,
 
-		func() (interface{}, *http.Response, error) {
-			return apiClient.ApplicationResourceGrantsApi.CreateApplicationGrant(ctx, d.Get("environment_id").(string), d.Get("application_id").(string)).ApplicationResourceGrant(applicationResourceGrant).Execute()
+		func() (any, *http.Response, error) {
+			return r.client.ApplicationResourceGrantsApi.CreateApplicationGrant(ctx, plan.EnvironmentId.ValueString(), plan.ApplicationId.ValueString()).ApplicationResourceGrant(*applicationResourceGrant).Execute()
 		},
 		"CreateApplicationGrant",
-		sdk.DefaultCustomError,
+		framework.DefaultCustomError,
 		sdk.DefaultCreateReadRetryable,
-	)
-	if diags.HasError() {
-		return diags
+		&response,
+	)...)
+	if resp.Diagnostics.HasError() {
+		return
 	}
 
-	respObject := resp.(*management.ApplicationResourceGrant)
+	// Create the state to save
+	state = plan
 
-	d.SetId(respObject.GetId())
-
-	return resourcePingOneApplicationResourceGrantRead(ctx, d, meta)
+	// Save updated data into Terraform state
+	resp.Diagnostics.Append(state.toState(response)...)
+	resp.Diagnostics.Append(resp.State.Set(ctx, state)...)
 }
 
-func resourcePingOneApplicationResourceGrantRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
-	p1Client := meta.(*client.Client)
-	apiClient := p1Client.API.ManagementAPIClient
-	ctx = context.WithValue(ctx, management.ContextServerVariables, map[string]string{
-		"suffix": p1Client.API.Region.URLSuffix,
-	})
-	var diags diag.Diagnostics
+func (r *ApplicationResourceGrantResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
+	var data *ApplicationResourceGrantResourceModel
 
-	resp, diags := sdk.ParseResponse(
+	if r.client == nil {
+		resp.Diagnostics.AddError(
+			"Client not initialized",
+			"Expected the PingOne client, got nil.  Please report this issue to the provider maintainers.")
+		return
+	}
+
+	// Read Terraform prior state data into the model
+	resp.Diagnostics.Append(req.State.Get(ctx, &data)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	// Run the API call
+	var response *management.ApplicationResourceGrant
+	resp.Diagnostics.Append(framework.ParseResponse(
 		ctx,
 
-		func() (interface{}, *http.Response, error) {
-			return apiClient.ApplicationResourceGrantsApi.ReadOneApplicationGrant(ctx, d.Get("environment_id").(string), d.Get("application_id").(string), d.Id()).Execute()
+		func() (any, *http.Response, error) {
+			return r.client.ApplicationResourceGrantsApi.ReadOneApplicationGrant(ctx, data.EnvironmentId.ValueString(), data.ApplicationId.ValueString(), data.Id.ValueString()).Execute()
 		},
 		"ReadOneApplicationGrant",
-		sdk.CustomErrorResourceNotFoundWarning,
+		framework.CustomErrorResourceNotFoundWarning,
 		sdk.DefaultCreateReadRetryable,
-	)
-	if diags.HasError() {
-		return diags
+		&response,
+	)...)
+	if resp.Diagnostics.HasError() {
+		return
 	}
 
-	if resp == nil {
-		d.SetId("")
-		return nil
+	// Remove from state if resource is not found
+	if response == nil {
+		resp.State.RemoveResource(ctx)
+		return
 	}
 
-	respObject := resp.(*management.ApplicationResourceGrant)
-
-	d.Set("resource_id", respObject.Resource.GetId())
-	d.Set("scopes", flattenAppResourceGrantScopes(respObject.GetScopes()))
-
-	return diags
+	// Save updated data into Terraform state
+	resp.Diagnostics.Append(data.toState(response)...)
+	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 
-func resourcePingOneApplicationResourceGrantUpdate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
-	p1Client := meta.(*client.Client)
-	apiClient := p1Client.API.ManagementAPIClient
-	ctx = context.WithValue(ctx, management.ContextServerVariables, map[string]string{
-		"suffix": p1Client.API.Region.URLSuffix,
-	})
-	var diags diag.Diagnostics
+func (r *ApplicationResourceGrantResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
+	var plan, state ApplicationResourceGrantResourceModel
 
-	resource := *management.NewApplicationResourceGrantResource(d.Get("resource_id").(string))
-	scopes := expandApplicationResourceGrant(d.Get("scopes").(*schema.Set))
+	if r.client == nil {
+		resp.Diagnostics.AddError(
+			"Client not initialized",
+			"Expected the PingOne client, got nil.  Please report this issue to the provider maintainers.")
+		return
+	}
 
-	applicationResourceGrant := *management.NewApplicationResourceGrant(resource, scopes)
+	// Read Terraform plan data into the model
+	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
 
-	_, diags = sdk.ParseResponse(
+	// Validate the plan
+	resp.Diagnostics.Append(plan.validate(ctx, r.client)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	// Build the model for the API
+	applicationResourceGrant, d := plan.expand(ctx)
+	resp.Diagnostics.Append(d...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	// Run the API call
+	var response *management.ApplicationResourceGrant
+	resp.Diagnostics.Append(framework.ParseResponse(
 		ctx,
 
-		func() (interface{}, *http.Response, error) {
-			return apiClient.ApplicationResourceGrantsApi.UpdateApplicationGrant(ctx, d.Get("environment_id").(string), d.Get("application_id").(string), d.Id()).ApplicationResourceGrant(applicationResourceGrant).Execute()
+		func() (any, *http.Response, error) {
+			return r.client.ApplicationResourceGrantsApi.UpdateApplicationGrant(ctx, plan.EnvironmentId.ValueString(), plan.ApplicationId.ValueString(), plan.Id.ValueString()).ApplicationResourceGrant(*applicationResourceGrant).Execute()
 		},
 		"UpdateApplicationGrant",
-		sdk.DefaultCustomError,
-		sdk.DefaultRetryable,
-	)
-	if diags.HasError() {
-		return diags
+		framework.DefaultCustomError,
+		nil,
+		&response,
+	)...)
+	if resp.Diagnostics.HasError() {
+		return
 	}
 
-	return resourcePingOneApplicationResourceGrantRead(ctx, d, meta)
+	// Create the state to save
+	state = plan
+
+	// Save updated data into Terraform state
+	resp.Diagnostics.Append(state.toState(response)...)
+	resp.Diagnostics.Append(resp.State.Set(ctx, state)...)
 }
 
-func resourcePingOneApplicationResourceGrantDelete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
-	p1Client := meta.(*client.Client)
-	apiClient := p1Client.API.ManagementAPIClient
-	ctx = context.WithValue(ctx, management.ContextServerVariables, map[string]string{
-		"suffix": p1Client.API.Region.URLSuffix,
-	})
-	var diags diag.Diagnostics
+func (r *ApplicationResourceGrantResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
+	var data *ApplicationResourceGrantResourceModel
 
-	_, diags = sdk.ParseResponse(
+	if r.client == nil {
+		resp.Diagnostics.AddError(
+			"Client not initialized",
+			"Expected the PingOne client, got nil.  Please report this issue to the provider maintainers.")
+		return
+	}
+
+	// Read Terraform prior state data into the model
+	resp.Diagnostics.Append(req.State.Get(ctx, &data)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	// Run the API call
+	resp.Diagnostics.Append(framework.ParseResponse(
 		ctx,
 
-		func() (interface{}, *http.Response, error) {
-			r, err := apiClient.ApplicationResourceGrantsApi.DeleteApplicationGrant(ctx, d.Get("environment_id").(string), d.Get("application_id").(string), d.Id()).Execute()
+		func() (any, *http.Response, error) {
+			r, err := r.client.ApplicationResourceGrantsApi.DeleteApplicationGrant(ctx, data.EnvironmentId.ValueString(), data.ApplicationId.ValueString(), data.Id.ValueString()).Execute()
 			return nil, r, err
 		},
 		"DeleteApplicationGrant",
-		sdk.CustomErrorResourceNotFoundWarning,
-		sdk.DefaultRetryable,
-	)
+		framework.CustomErrorResourceNotFoundWarning,
+		nil,
+		nil,
+	)...)
+
+	if resp.Diagnostics.HasError() {
+		return
+	}
+}
+
+func (r *ApplicationResourceGrantResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
+	splitLength := 3
+	attributes := strings.SplitN(req.ID, "/", splitLength)
+
+	if len(attributes) != splitLength {
+		resp.Diagnostics.AddError(
+			"Unexpected Import Identifier",
+			fmt.Sprintf("invalid id (\"%s\") specified, should be in format \"environment_id/application_id/resource_grant_id\"", req.ID),
+		)
+		return
+	}
+
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("environment_id"), attributes[0])...)
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("application_id"), attributes[1])...)
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), attributes[2])...)
+}
+
+func (p *ApplicationResourceGrantResourceModel) expand(ctx context.Context) (*management.ApplicationResourceGrant, diag.Diagnostics) {
+	var diags diag.Diagnostics
+
+	resource := management.NewApplicationResourceGrantResource(p.ResourceId.ValueString())
+
+	var scopesPlan []string
+	diags.Append(p.Scopes.ElementsAs(ctx, &scopesPlan, false)...)
+	if diags.HasError() {
+		return nil, diags
+	}
+
+	scopes := make([]management.ApplicationResourceGrantScopesInner, 0, len(scopesPlan))
+	for _, scope := range scopesPlan {
+		scopes = append(scopes, management.ApplicationResourceGrantScopesInner{
+			Id: scope,
+		})
+	}
+
+	data := management.NewApplicationResourceGrant(*resource, scopes)
+
+	return data, diags
+}
+
+func (p *ApplicationResourceGrantResourceModel) validate(ctx context.Context, apiClient *management.APIClient) diag.Diagnostics {
+	var diags diag.Diagnostics
+
+	// Check that the `openid` scope from the `openid` resource is not in the list
+	var resource *management.Resource
+	diags.Append(framework.ParseResponse(
+		ctx,
+
+		func() (any, *http.Response, error) {
+			return apiClient.ResourcesApi.ReadOneResource(ctx, p.EnvironmentId.ValueString(), p.ResourceId.ValueString()).Execute()
+		},
+		"ReadOneResource",
+		framework.DefaultCustomError,
+		sdk.DefaultCreateReadRetryable,
+		&resource,
+	)...)
 	if diags.HasError() {
 		return diags
+	}
+
+	if v, ok := resource.GetNameOk(); ok && *v == "openid" {
+		var entityArray *management.EntityArray
+		diags.Append(framework.ParseResponse(
+			ctx,
+
+			func() (any, *http.Response, error) {
+				return apiClient.ResourceScopesApi.ReadAllResourceScopes(ctx, p.EnvironmentId.ValueString(), p.ResourceId.ValueString()).Execute()
+			},
+			"ReadAllResourceScopes",
+			framework.DefaultCustomError,
+			sdk.DefaultCreateReadRetryable,
+			&entityArray,
+		)...)
+
+		if diags.HasError() {
+			return diags
+		}
+
+		if resourceScopes, ok := entityArray.Embedded.GetScopesOk(); ok {
+			openidScope := ""
+			for _, resourceScope := range resourceScopes {
+				if resourceScopeName, ok := resourceScope.GetNameOk(); ok && *resourceScopeName == "openid" {
+					openidScope = resourceScope.GetId()
+					break
+				}
+			}
+
+			if openidScope != "" {
+				var scopesPlan []string
+				diags.Append(p.Scopes.ElementsAs(ctx, &scopesPlan, false)...)
+				if diags.HasError() {
+					return diags
+				}
+
+				for _, scope := range scopesPlan {
+					if scope == openidScope {
+						diags.AddError(
+							"Invalid scope",
+							"Cannot create an application resource grant with the `openid` scope.  This scope is automatically applied and should be removed from the `scopes` parameter.",
+						)
+						break
+					}
+				}
+			}
+		}
 	}
 
 	return diags
 }
 
-func resourcePingOneApplicationResourceGrantImport(ctx context.Context, d *schema.ResourceData, meta interface{}) ([]*schema.ResourceData, error) {
-	splitLength := 3
-	attributes := strings.SplitN(d.Id(), "/", splitLength)
+func (p *ApplicationResourceGrantResourceModel) toState(apiObject *management.ApplicationResourceGrant) diag.Diagnostics {
+	var diags diag.Diagnostics
 
-	if len(attributes) != splitLength {
-		return nil, fmt.Errorf("invalid id (\"%s\") specified, should be in format \"environmentID/applicationID/grantID\"", d.Id())
+	if apiObject == nil {
+		diags.AddError(
+			"Data object missing",
+			"Cannot convert the data object to state as the data object is nil.  Please report this to the provider maintainers.",
+		)
+
+		return diags
 	}
 
-	environmentID, applicationID, grantID := attributes[0], attributes[1], attributes[2]
+	p.Id = framework.StringOkToTF(apiObject.GetIdOk())
+	p.ResourceId = framework.StringOkToTF(apiObject.Resource.GetIdOk())
+	p.ApplicationId = framework.StringOkToTF(apiObject.Application.GetIdOk())
 
-	d.Set("environment_id", environmentID)
-	d.Set("application_id", applicationID)
-	d.SetId(grantID)
-
-	resourcePingOneApplicationResourceGrantRead(ctx, d, meta)
-
-	return []*schema.ResourceData{d}, nil
-}
-
-func expandApplicationResourceGrant(scopesIn *schema.Set) []management.ApplicationResourceGrantScopesInner {
-
-	scopes := make([]management.ApplicationResourceGrantScopesInner, 0, len(scopesIn.List()))
-	for _, scope := range scopesIn.List() {
-		scopes = append(scopes, management.ApplicationResourceGrantScopesInner{
-			Id: scope.(string),
-		})
+	if v, ok := apiObject.GetScopesOk(); ok {
+		items := make([]string, 0, len(v))
+		for _, scope := range v {
+			items = append(items, scope.GetId())
+		}
+		p.Scopes = framework.StringSetToTF(items)
+	} else {
+		p.Scopes = types.SetNull(types.StringType)
 	}
 
-	return scopes
-}
-
-func flattenAppResourceGrantScopes(in []management.ApplicationResourceGrantScopesInner) []string {
-
-	items := make([]string, 0, len(in))
-	for _, v := range in {
-
-		items = append(items, v.GetId())
-	}
-
-	return items
+	return diags
 }

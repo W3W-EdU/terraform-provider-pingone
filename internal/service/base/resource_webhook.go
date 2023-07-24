@@ -84,7 +84,7 @@ func ResourceWebhook() *schema.Resource {
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
 						"included_action_types": {
-							Description: "A non-empty list that specifies the list of action types that should be matched for the webhook.",
+							Description: "A non-empty list that specifies the list of action types that should be matched for the webhook.\n\nRefer to the [PingOne API Reference - Subscription Action Types](https://apidocs.pingidentity.com/pingone/platform/v1/api/#subscription-action-types) documentation for a full list of configurable action types.",
 							Type:        schema.TypeSet,
 							Required:    true,
 							Elem: &schema.Schema{
@@ -119,6 +119,18 @@ func ResourceWebhook() *schema.Resource {
 								ValidateDiagFunc: validation.ToDiagFunc(validation.StringInSlice([]string{string(management.ENUMSUBSCRIPTIONFILTERINCLUDEDTAGS_ADMIN_IDENTITY_EVENT)}, false)),
 							},
 						},
+						"ip_address_exposed": {
+							Description: "A boolean that specifies whether the IP address of an actor should be present in the source section of the event.",
+							Type:        schema.TypeBool,
+							Optional:    true,
+							Default:     false,
+						},
+						"useragent_exposed": {
+							Description: "A boolean that specifies whether the User-Agent HTTP header of an event should be present in the source section of the event.",
+							Type:        schema.TypeBool,
+							Optional:    true,
+							Default:     false,
+						},
 					},
 				},
 			},
@@ -129,9 +141,7 @@ func ResourceWebhook() *schema.Resource {
 func resourceWebhookCreate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	p1Client := meta.(*client.Client)
 	apiClient := p1Client.API.ManagementAPIClient
-	ctx = context.WithValue(ctx, management.ContextServerVariables, map[string]string{
-		"suffix": p1Client.API.Region.URLSuffix,
-	})
+
 	var diags diag.Diagnostics
 
 	subscription, diags := expandWebhook(d)
@@ -142,7 +152,7 @@ func resourceWebhookCreate(ctx context.Context, d *schema.ResourceData, meta int
 	resp, diags := sdk.ParseResponse(
 		ctx,
 
-		func() (interface{}, *http.Response, error) {
+		func() (any, *http.Response, error) {
 			return apiClient.SubscriptionsWebhooksApi.CreateSubscription(ctx, d.Get("environment_id").(string)).Subscription(*subscription).Execute()
 		},
 		"CreateSubscription",
@@ -163,15 +173,13 @@ func resourceWebhookCreate(ctx context.Context, d *schema.ResourceData, meta int
 func resourceWebhookRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	p1Client := meta.(*client.Client)
 	apiClient := p1Client.API.ManagementAPIClient
-	ctx = context.WithValue(ctx, management.ContextServerVariables, map[string]string{
-		"suffix": p1Client.API.Region.URLSuffix,
-	})
+
 	var diags diag.Diagnostics
 
 	resp, diags := sdk.ParseResponse(
 		ctx,
 
-		func() (interface{}, *http.Response, error) {
+		func() (any, *http.Response, error) {
 			return apiClient.SubscriptionsWebhooksApi.ReadOneSubscription(ctx, d.Get("environment_id").(string), d.Id()).Execute()
 		},
 		"ReadOneSubscription",
@@ -211,9 +219,7 @@ func resourceWebhookRead(ctx context.Context, d *schema.ResourceData, meta inter
 func resourceWebhookUpdate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	p1Client := meta.(*client.Client)
 	apiClient := p1Client.API.ManagementAPIClient
-	ctx = context.WithValue(ctx, management.ContextServerVariables, map[string]string{
-		"suffix": p1Client.API.Region.URLSuffix,
-	})
+
 	var diags diag.Diagnostics
 
 	subscription, diags := expandWebhook(d)
@@ -224,12 +230,12 @@ func resourceWebhookUpdate(ctx context.Context, d *schema.ResourceData, meta int
 	_, diags = sdk.ParseResponse(
 		ctx,
 
-		func() (interface{}, *http.Response, error) {
+		func() (any, *http.Response, error) {
 			return apiClient.SubscriptionsWebhooksApi.UpdateSubscription(ctx, d.Get("environment_id").(string), d.Id()).Subscription(*subscription).Execute()
 		},
 		"UpdateSubscription",
 		sdk.DefaultCustomError,
-		sdk.DefaultRetryable,
+		nil,
 	)
 	if diags.HasError() {
 		return diags
@@ -241,21 +247,19 @@ func resourceWebhookUpdate(ctx context.Context, d *schema.ResourceData, meta int
 func resourceWebhookDelete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	p1Client := meta.(*client.Client)
 	apiClient := p1Client.API.ManagementAPIClient
-	ctx = context.WithValue(ctx, management.ContextServerVariables, map[string]string{
-		"suffix": p1Client.API.Region.URLSuffix,
-	})
+
 	var diags diag.Diagnostics
 
 	_, diags = sdk.ParseResponse(
 		ctx,
 
-		func() (interface{}, *http.Response, error) {
+		func() (any, *http.Response, error) {
 			r, err := apiClient.SubscriptionsWebhooksApi.DeleteSubscription(ctx, d.Get("environment_id").(string), d.Id()).Execute()
 			return nil, r, err
 		},
 		"DeleteSubscription",
 		sdk.CustomErrorResourceNotFoundWarning,
-		sdk.DefaultRetryable,
+		nil,
 	)
 	if diags.HasError() {
 		return diags
@@ -356,6 +360,14 @@ func expandWebhookFilterOptions(c []interface{}) (*management.SubscriptionFilter
 		returnVar.SetIncludedTags(objList)
 	}
 
+	if v, ok := obj["ip_address_exposed"]; ok && v != nil {
+		returnVar.SetIpAddressExposed(v.(bool))
+	}
+
+	if v, ok := obj["useragent_exposed"]; ok && v != nil {
+		returnVar.SetUserAgentExposed(v.(bool))
+	}
+
 	return returnVar, diags
 }
 
@@ -396,6 +408,18 @@ func flattenWebhookFilterOptions(subscriptionFilterOptions management.Subscripti
 		}
 
 		item["included_tags"] = list
+	}
+
+	if v, ok := subscriptionFilterOptions.GetIpAddressExposedOk(); ok {
+		item["ip_address_exposed"] = v
+	} else {
+		item["ip_address_exposed"] = nil
+	}
+
+	if v, ok := subscriptionFilterOptions.GetUserAgentExposedOk(); ok {
+		item["useragent_exposed"] = v
+	} else {
+		item["useragent_exposed"] = nil
 	}
 
 	return append(make([]interface{}, 0), item)

@@ -76,9 +76,7 @@ func DatasourceResourceScope() *schema.Resource {
 func datasourcePingOneResourceScopeRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	p1Client := meta.(*client.Client)
 	apiClient := p1Client.API.ManagementAPIClient
-	ctx = context.WithValue(ctx, management.ContextServerVariables, map[string]string{
-		"suffix": p1Client.API.Region.URLSuffix,
-	})
+
 	var diags diag.Diagnostics
 
 	var resp management.ResourceScope
@@ -88,7 +86,7 @@ func datasourcePingOneResourceScopeRead(ctx context.Context, d *schema.ResourceD
 		respList, diags := sdk.ParseResponse(
 			ctx,
 
-			func() (interface{}, *http.Response, error) {
+			func() (any, *http.Response, error) {
 				return apiClient.ResourceScopesApi.ReadAllResourceScopes(ctx, d.Get("environment_id").(string), d.Get("resource_id").(string)).Execute()
 			},
 			"ReadAllResourceScopes",
@@ -127,7 +125,7 @@ func datasourcePingOneResourceScopeRead(ctx context.Context, d *schema.ResourceD
 		resourceResp, diags := sdk.ParseResponse(
 			ctx,
 
-			func() (interface{}, *http.Response, error) {
+			func() (any, *http.Response, error) {
 				return apiClient.ResourceScopesApi.ReadOneResourceScope(ctx, d.Get("environment_id").(string), d.Get("resource_id").(string), v.(string)).Execute()
 			},
 			"ReadOneResourceScope",
@@ -184,7 +182,7 @@ func fetchResourceScopeFromName(ctx context.Context, apiClient *management.APICl
 	respList, diags := sdk.ParseResponse(
 		ctx,
 
-		func() (interface{}, *http.Response, error) {
+		func() (any, *http.Response, error) {
 			return apiClient.ResourceScopesApi.ReadAllResourceScopes(ctx, environmentID, resourceID).Execute()
 		},
 		"ReadAllResourceScopes",

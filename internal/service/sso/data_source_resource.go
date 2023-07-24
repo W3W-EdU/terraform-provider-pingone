@@ -83,9 +83,7 @@ func DatasourceResource() *schema.Resource {
 func datasourcePingOneResourceRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	p1Client := meta.(*client.Client)
 	apiClient := p1Client.API.ManagementAPIClient
-	ctx = context.WithValue(ctx, management.ContextServerVariables, map[string]string{
-		"suffix": p1Client.API.Region.URLSuffix,
-	})
+
 	var diags diag.Diagnostics
 
 	var resp *management.Resource
@@ -102,7 +100,7 @@ func datasourcePingOneResourceRead(ctx context.Context, d *schema.ResourceData, 
 		resourceResp, diags := sdk.ParseResponse(
 			ctx,
 
-			func() (interface{}, *http.Response, error) {
+			func() (any, *http.Response, error) {
 				return apiClient.ResourcesApi.ReadOneResource(ctx, d.Get("environment_id").(string), v.(string)).Execute()
 			},
 			"ReadOneResource",
@@ -144,7 +142,7 @@ func datasourcePingOneResourceRead(ctx context.Context, d *schema.ResourceData, 
 			respSecret, diags := sdk.ParseResponse(
 				ctx,
 
-				func() (interface{}, *http.Response, error) {
+				func() (any, *http.Response, error) {
 					return apiClient.ResourceClientSecretApi.ReadResourceSecret(ctx, d.Get("environment_id").(string), d.Id()).Execute()
 				},
 				"ReadResourceSecret",
@@ -222,7 +220,7 @@ func fetchResourceFromName(ctx context.Context, apiClient *management.APIClient,
 	respList, diags := sdk.ParseResponse(
 		ctx,
 
-		func() (interface{}, *http.Response, error) {
+		func() (any, *http.Response, error) {
 			return apiClient.ResourcesApi.ReadAllResources(ctx, environmentID).Execute()
 		},
 		"ReadAllResources",

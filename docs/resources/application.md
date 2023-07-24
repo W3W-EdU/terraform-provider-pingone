@@ -2,12 +2,12 @@
 page_title: "pingone_application Resource - terraform-provider-pingone"
 subcategory: "SSO"
 description: |-
-  Resource to create and manage PingOne applications
+  Resource to create and manage administrator defined applications in PingOne.
 ---
 
 # pingone_application (Resource)
 
-Resource to create and manage PingOne applications
+Resource to create and manage administrator defined applications in PingOne.
 
 ## Example Usage - Single Page Application (SPA)
 
@@ -49,6 +49,18 @@ resource "pingone_application" "my_awesome_web_app" {
 ## Example Usage - SAML Application
 
 ```terraform
+resource "pingone_key" "my_awesome_key" {
+  environment_id = pingone_environment.my_environment.id
+
+  name                = "Example Signing Key"
+  algorithm           = "RSA"
+  key_length          = 4096
+  signature_algorithm = "SHA512withRSA"
+  subject_dn          = "CN=Example Signing Key, OU=BX Retail, O=BX Retail, L=, ST=, C=US"
+  usage_type          = "SIGNING"
+  validity_period     = 365
+}
+
 resource "pingone_application" "my_awesome_saml_app" {
   environment_id = pingone_environment.my_environment.id
   name           = "My Awesome SAML App"
@@ -59,23 +71,60 @@ resource "pingone_application" "my_awesome_saml_app" {
     assertion_duration = 3600
     sp_entity_id       = "sp:entity:localhost"
 
+    idp_signing_key {
+      key_id    = pingone_key.my_awesome_key.id
+      algorithm = pingone_key.my_awesome_key.signature_algorithm
+    }
+
     sp_verification_certificate_ids = [var.sp_verification_certificate_id]
   }
 }
 ```
 
-## Example Usage - Native Application
+## Example Usage - Native Application (Mobile)
 
 ```terraform
 resource "pingone_application" "my_awesome_native_app" {
   environment_id = pingone_environment.my_environment.id
-  name           = "My Awesome Native App"
+  name           = "My Awesome Native Mobile App"
   enabled        = true
 
   oidc_options {
     type                        = "NATIVE_APP"
-    grant_types                 = ["CLIENT_CREDENTIALS"]
-    token_endpoint_authn_method = "CLIENT_SECRET_BASIC"
+    grant_types                 = ["AUTHORIZATION_CODE"]
+    response_types              = ["CODE"]
+    pkce_enforcement            = "S256_REQUIRED"
+    token_endpoint_authn_method = "NONE"
+    redirect_uris = [
+      "https://demo.bxretail.org/app/callback",
+      "org.bxretail.app://callback"
+    ]
+
+    mobile_app {
+      bundle_id           = var.apple_bundle_id
+      package_name        = var.android_package_name
+      huawei_app_id       = var.huawei_app_id
+      huawei_package_name = var.huawei_package_name
+
+      universal_app_link = "https://demo.bxretail.org"
+
+      passcode_refresh_seconds = 30
+
+      integrity_detection {
+        enabled = true
+
+        cache_duration {
+          amount = 24
+          units  = "HOURS"
+        }
+
+        google_play {
+          verification_type = "INTERNAL"
+          decryption_key    = var.google_play_integrity_api_decryption_key
+          verification_key  = var.google_play_integrity_api_verification_key
+        }
+      }
+    }
   }
 }
 ```
@@ -99,9 +148,9 @@ resource "pingone_application" "my_awesome_worker_app" {
 ## Example Usage - External Link
 
 ```terraform
-resource "pingone_application" "my_awesome_saml_app" {
+resource "pingone_application" "my_awesome_external_link" {
   environment_id = pingone_environment.my_environment.id
-  name           = "My Awesome External App"
+  name           = "My Awesome External Link"
   enabled        = true
 
   external_link_options {
@@ -127,7 +176,7 @@ resource "pingone_application" "my_awesome_saml_app" {
 - `external_link_options` (Block List, Max: 1) External link application specific settings. (see [below for nested schema](#nestedblock--external_link_options))
 - `hidden_from_app_portal` (Boolean) A boolean to specify whether the application is hidden in the application portal despite the configured group access policy. Defaults to `false`.
 - `icon` (Block List, Max: 1) The HREF and the ID for the application icon. (see [below for nested schema](#nestedblock--icon))
-- `login_page_url` (String) A string that specifies the custom login page URL for the application. If you set the `login_page_url` property for applications in an environment that sets a custom domain, the URL should include the top-level domain and at least one additional domain level. **Warning** To avoid issues with third-party cookies in some browsers, a custom domain must be used, giving your PingOne environment the same parent domain as your authentication application. For more information about custom domains, see Custom domains.
+- `login_page_url` (String) A string that specifies the custom login page URL for the application. If you set the `login_page_url` property for applications in an environment that sets a custom domain, the URL should include the top-level domain and at least one additional domain level. **Warning** To avoid issues with third-party cookies in some browsers, a custom domain must be used, giving your PingOne environment the same parent domain as your authentication application. For more information about custom domains, see Custom domains.  The provided URL is expected to use the `https://` schema.  The `http` schema is permitted where the host is `localhost` or `127.0.0.1`.
 - `oidc_options` (Block List, Max: 1) OIDC/OAuth application specific settings. (see [below for nested schema](#nestedblock--oidc_options))
 - `saml_options` (Block List, Max: 1) SAML application specific settings. (see [below for nested schema](#nestedblock--saml_options))
 - `tags` (Set of String) An array that specifies the list of labels associated with the application.  Options are: `PING_FED_CONNECTION_INTEGRATION`
@@ -150,7 +199,7 @@ Required:
 
 Required:
 
-- `home_page_url` (String) A string that specifies the custom home page URL for the application.
+- `home_page_url` (String) A string that specifies the custom home page URL for the application.  Both `http://` and `https://` URLs are permitted.
 
 
 <a id="nestedblock--icon"></a>
@@ -174,35 +223,46 @@ Required:
 Optional:
 
 - `allow_wildcards_in_redirect_uris` (Boolean) A boolean to specify whether wildcards are allowed in redirect URIs. For more information, see [Wildcards in Redirect URIs](https://docs.pingidentity.com/csh?context=p1_c_wildcard_redirect_uri). Defaults to `false`.
-- `bundle_id` (String) A string that specifies the bundle associated with the application, for push notifications in native apps. The value of the `bundle_id` property is unique per environment, and once defined, is immutable; any change will force recreation of the applicationr resource.
-- `home_page_url` (String) A string that specifies the custom home page URL for the application.
-- `initiate_login_uri` (String) A string that specifies the URI to use for third-parties to begin the sign-on process for the application. If specified, PingOne redirects users to this URI to initiate SSO to PingOne. The application is responsible for implementing the relevant OIDC flow when the initiate login URI is requested. This property is required if you want the application to appear in the PingOne Application Portal. See the OIDC specification section of [Initiating Login from a Third Party](https://openid.net/specs/openid-connect-core-1_0.html#ThirdPartyInitiatedLogin) for more information.
+- `bundle_id` (String, Deprecated) **Deprecation Notice** This field is deprecated and will be removed in a future release. Use `oidc_options.mobile_app.bundle_id` instead. A string that specifies the bundle associated with the application, for push notifications in native apps. The value of the `bundle_id` property is unique per environment, and once defined, is immutable; any change will force recreation of the application resource.
+- `certificate_based_authentication` (Block List, Max: 1) Certificate based authentication settings. This parameter block can only be set where the application's `type` parameter is set to `NATIVE_APP`. (see [below for nested schema](#nestedblock--oidc_options--certificate_based_authentication))
+- `home_page_url` (String) A string that specifies the custom home page URL for the application.  The provided URL is expected to use the `https://` schema.  The `http` schema is permitted where the host is `localhost` or `127.0.0.1`.
+- `initiate_login_uri` (String) A string that specifies the URI to use for third-parties to begin the sign-on process for the application. If specified, PingOne redirects users to this URI to initiate SSO to PingOne. The application is responsible for implementing the relevant OIDC flow when the initiate login URI is requested. This property is required if you want the application to appear in the PingOne Application Portal. See the OIDC specification section of [Initiating Login from a Third Party](https://openid.net/specs/openid-connect-core-1_0.html#ThirdPartyInitiatedLogin) for more information.  The provided URL is expected to use the `https://` schema.  The `http` schema is permitted where the host is `localhost` or `127.0.0.1`.
 - `mobile_app` (Block List, Max: 1) Mobile application integration settings for `NATIVE_APP` type applications. (see [below for nested schema](#nestedblock--oidc_options--mobile_app))
-- `package_name` (String) A string that specifies the package name associated with the application, for push notifications in native apps. The value of the `package_name` property is unique per environment, and once defined, is immutable.
+- `package_name` (String, Deprecated) **Deprecation Notice** This field is deprecated and will be removed in a future release. Use `oidc_options.mobile_app.package_name` instead. A string that specifies the package name associated with the application, for push notifications in native apps. The value of the `package_name` property is unique per environment, and once defined, is immutable; any change will force recreation of the application resource.
 - `pkce_enforcement` (String) A string that specifies how `PKCE` request parameters are handled on the authorize request.  Options are `OPTIONAL`, `REQUIRED` and `S256_REQUIRED`. Defaults to `OPTIONAL`.
-- `post_logout_redirect_uris` (Set of String) A string that specifies the URLs that the browser can be redirected to after logout.
-- `redirect_uris` (Set of String) A string that specifies the callback URI for the authentication response.
-- `refresh_token_duration` (Number) An integer that specifies the lifetime in seconds of the refresh token. If a value is not provided, the default value is 2592000, or 30 days. Valid values are between 60 and 2147483647. If the refresh_token_rolling_duration property is specified for the application, then this property must be less than or equal to the value of refreshTokenRollingDuration. After this property is set, the value cannot be nullified. This value is used to generate the value for the exp claim when minting a new refresh token. Defaults to `2592000`.
-- `refresh_token_rolling_duration` (Number) An integer that specifies the number of seconds a refresh token can be exchanged before re-authentication is required. If a value is not provided, the default value is 15552000, or 180 days. Valid values are between 60 and 2147483647. After this property is set, the value cannot be nullified. This value is used to generate the value for the exp claim when minting a new refresh token. Defaults to `15552000`.
-- `refresh_token_rolling_grace_period_duration` (Number) The number of seconds that a refresh token may be reused after having been exchanged for a new set of tokens. This is useful in the case of network errors on the client. Valid values are between 0 and 86400 seconds. Null is treated the same as 0.
+- `post_logout_redirect_uris` (Set of String) A list of strings that specifies the URLs that the browser can be redirected to after logout.  The provided URLs are expected to use the `https://`, `http://` schema, or a custom mobile native schema (e.g., `org.bxretail.app://logout`).
+- `redirect_uris` (Set of String) A list of strings that specifies the allowed callback URIs for the authentication response.    The provided URLs are expected to use the `https://` schema, or a custom mobile native schema (e.g., `org.bxretail.app://callback`).  The `http` schema is only permitted where the host is `localhost` or `127.0.0.1`.
+- `refresh_token_duration` (Number) An integer that specifies the lifetime in seconds of the refresh token. If a value is not provided, the default value is `2592000`, or 30 days. Valid values are between `60` and `2147483647`. If the `refresh_token_rolling_duration` property is specified for the application, then this property value must be less than or equal to the value of `refresh_token_rolling_duration`. After this property is set, the value cannot be nullified - this will force recreation of the resource. This value is used to generate the value for the exp claim when minting a new refresh token. Defaults to `2592000`.
+- `refresh_token_rolling_duration` (Number) An integer that specifies the number of seconds a refresh token can be exchanged before re-authentication is required. If a value is not provided, the default value is `15552000`, or 180 days. Valid values are between `60` and `2147483647`. After this property is set, the value cannot be nullified - this will force recreation of the resource. This value is used to generate the value for the exp claim when minting a new refresh token. Defaults to `15552000`.
+- `refresh_token_rolling_grace_period_duration` (Number) The number of seconds that a refresh token may be reused after having been exchanged for a new set of tokens. This is useful in the case of network errors on the client. Valid values are between `0` and `86400` seconds. `Null` is treated the same as `0`.
 - `response_types` (Set of String) A list that specifies the code or token type returned by an authorization request.  Note that `CODE` cannot be used in an authorization request with `TOKEN` or `ID_TOKEN` because PingOne does not currently support OIDC hybrid flows.
 - `support_unsigned_request_object` (Boolean) A boolean that specifies whether the request query parameter JWT is allowed to be unsigned. If false or null (default), an unsigned request object is not allowed. Defaults to `false`.
-- `target_link_uri` (String) The URI for the application. If specified, PingOne will redirect application users to this URI after a user is authenticated. In the PingOne admin console, this becomes the value of the `target_link_uri` parameter used for the Initiate Single Sign-On URL field.
+- `target_link_uri` (String) The URI for the application. If specified, PingOne will redirect application users to this URI after a user is authenticated. In the PingOne admin console, this becomes the value of the `target_link_uri` parameter used for the Initiate Single Sign-On URL field.  Both `http://` and `https://` URLs are permitted as well as custom mobile native schema (e.g., `org.bxretail.app://target`).
 
 Read-Only:
 
 - `client_id` (String) A string that specifies the application ID used to authenticate to the authorization server.
 - `client_secret` (String, Sensitive) A string that specifies the application secret ID used to authenticate to the authorization server.
 
+<a id="nestedblock--oidc_options--certificate_based_authentication"></a>
+### Nested Schema for `oidc_options.certificate_based_authentication`
+
+Required:
+
+- `key_id` (String) A string that represents a PingOne ID for the issuance certificate key.  The key must be of type `ISSUANCE`.
+
+
 <a id="nestedblock--oidc_options--mobile_app"></a>
 ### Nested Schema for `oidc_options.mobile_app`
 
 Optional:
 
-- `bundle_id` (String) A string that specifies the bundle associated with the application, for push notifications in native apps. The value of the bundle_id property is unique per environment, and once defined, is immutable.  this setting overrides the top-level `bundle_id` field
+- `bundle_id` (String) A string that specifies the bundle associated with the application, for push notifications in native apps. The value of the `bundle_id` property is unique per environment, and once defined, is immutable.  Changing this value will trigger a replacement plan of this resource.
+- `huawei_app_id` (String) The unique identifier for the app on the device and in the Huawei Mobile Service AppGallery. The value of this property is unique per environment, and once defined, is immutable.  Required with `huawei_package_name`.  Changing this value will trigger a replacement plan of this resource.
+- `huawei_package_name` (String) The package name associated with the application, for push notifications in native apps. The value of this property is unique per environment, and once defined, is immutable.  Required with `huawei_app_id`.  Changing this value will trigger a replacement plan of this resource.
 - `integrity_detection` (Block List, Max: 1) Mobile application integrity detection settings. (see [below for nested schema](#nestedblock--oidc_options--mobile_app--integrity_detection))
-- `package_name` (String) A string that specifies the package name associated with the application, for push notifications in native apps. The value of the `package_name` property is unique per environment, and once defined, is immutable.  this setting overrides the top-level `package_name` field.
-- `passcode_refresh_seconds` (Number) The amount of time a passcode should be displayed before being replaced with a new passcode - must be between 30 and 60.
+- `package_name` (String) A string that specifies the package name associated with the application, for push notifications in native apps. The value of the `package_name` property is unique per environment, and once defined, is immutable.  Changing this value will trigger a replacement plan of this resource.
+- `passcode_refresh_seconds` (Number) The amount of time a passcode should be displayed before being replaced with a new passcode - must be between 30 and 60. Defaults to `30`.
 - `universal_app_link` (String) A string that specifies a URI prefix that enables direct triggering of the mobile application when scanning a QR code. The URI prefix can be set to a universal link with a valid value (which can be a URL address that starts with `HTTP://` or `HTTPS://`, such as `https://www.bxretail.org`), or an app schema, which is just a string and requires no special validation.
 
 <a id="nestedblock--oidc_options--mobile_app--integrity_detection"></a>
@@ -212,7 +272,8 @@ Optional:
 
 - `cache_duration` (Block List, Max: 1) Every attestation request entails a certain time tradeoff. You can choose to cache successful integrity detection calls for a predefined duration, between a minimum of 1 minute and a maximum of 48 hours. If integrity detection is ENABLED, the cache duration must be set. (see [below for nested schema](#nestedblock--oidc_options--mobile_app--integrity_detection--cache_duration))
 - `enabled` (Boolean) A boolean that specifies whether device integrity detection takes place on mobile devices. Defaults to `false`.
-- `excluded_platforms` (List of String) You can enable device integrity checking separately for Android and iOS by setting `enabled` to `true` and then using `excluded_platforms` to specify the OS where you do not want to use device integrity checking. The values to use are `GOOGLE` and `IOS` (all upper case). Note that this is implemented as an array even though currently you can only include a single value.
+- `excluded_platforms` (List of String) You can enable device integrity checking separately for Android and iOS by setting `enabled` to `true` and then using `excluded_platforms` to specify the OS where you do not want to use device integrity checking. The values to use are `GOOGLE` and `IOS` (all upper case). Note that this is implemented as an array even though currently you can only include a single value.  If `GOOGLE` is not included in this list, the `google_play` attribute block must be configured.
+- `google_play` (Block List, Max: 1) Required when `excluded_platforms` is unset or does not include `GOOGLE`.  A single block that describes Google Play Integrity API credential settings for Android device integrity detection. (see [below for nested schema](#nestedblock--oidc_options--mobile_app--integrity_detection--google_play))
 
 <a id="nestedblock--oidc_options--mobile_app--integrity_detection--cache_duration"></a>
 ### Nested Schema for `oidc_options.mobile_app.integrity_detection.cache_duration`
@@ -224,6 +285,20 @@ Required:
 Optional:
 
 - `units` (String) A string that specifies the time units of the `amount` parameter. Options are `MINUTES` and `HOURS`. Defaults to `MINUTES`.
+
+
+<a id="nestedblock--oidc_options--mobile_app--integrity_detection--google_play"></a>
+### Nested Schema for `oidc_options.mobile_app.integrity_detection.google_play`
+
+Required:
+
+- `verification_type` (String) The type of verification that should be used. The possible values are `GOOGLE` and `INTERNAL`. Using internal verification will not count against your Google API call quota. The value you select for this attribute determines what other parameters you must provide. When set to `GOOGLE`, you must provide `service_account_credentials_json`. When set to `INTERNAL`, you must provide both `decryption_key` and `verification_key`.
+
+Optional:
+
+- `decryption_key` (String, Sensitive) Play Integrity verdict decryption key from your Google Play Services account. This parameter must be provided if you have set `verification_type` to `INTERNAL`.  Cannot be set with `service_account_credentials_json`.
+- `service_account_credentials_json` (String, Sensitive) Contents of the JSON file that represents your Service Account Credentials. This parameter must be provided if you have set `verification_type` to `GOOGLE`.  Cannot be set with `decryption_key` or `verification_key`.
+- `verification_key` (String, Sensitive) Play Integrity verdict signature verification key from your Google Play Services account. This parameter must be provided if you have set `verification_type` to `INTERNAL`.  Cannot be set with `service_account_credentials_json`.
 
 
 
@@ -242,18 +317,28 @@ Optional:
 
 - `assertion_signed_enabled` (Boolean) A boolean that specifies whether the SAML assertion itself should be signed. Defaults to `true`.
 - `home_page_url` (String) A string that specifies the custom home page URL for the application.
-- `idp_signing_key_id` (String) An ID for the certificate key pair to be used by the identity provider to sign assertions and responses. If this property is omitted, the default signing certificate for the environment is used.
+- `idp_signing_key` (Block List, Max: 1) SAML application assertion/response signing key settings.  Use with `assertion_signed_enabled` to enable assertion signing and/or `response_is_signed` to enable response signing.  It's highly recommended, and best practice, to define signing key settings for the configured SAML application.  However if this property is omitted, the default signing certificate for the environment is used.  This parameter will become a required field in the next major release of the provider. (see [below for nested schema](#nestedblock--saml_options--idp_signing_key))
+- `idp_signing_key_id` (String, Deprecated) An ID for the certificate key pair to be used by the identity provider to sign assertions and responses. If this property is omitted, the default signing certificate for the environment is used.
 - `nameid_format` (String) A string that specifies the format of the Subject NameID attibute in the SAML assertion.
 - `response_is_signed` (Boolean) A boolean that specifies whether the SAML assertion response itself should be signed. Defaults to `false`.
 - `slo_binding` (String) A string that specifies the binding protocol to be used for the logout response. Options are `HTTP_REDIRECT` and `HTTP_POST`.  Existing configurations with no data default to `HTTP_POST`. Defaults to `HTTP_POST`.
-- `slo_endpoint` (String) A string that specifies the logout endpoint URL. This is an optional property. However, if a sloEndpoint logout endpoint URL is not defined, logout actions result in an error.
-- `slo_response_endpoint` (String) A string that specifies the endpoint URL to submit the logout response. If a value is not provided, the sloEndpoint property value is used to submit SLO response.
+- `slo_endpoint` (String) A string that specifies the logout endpoint URL. This is an optional property. However, if a logout endpoint URL is not defined, logout actions result in an error.
+- `slo_response_endpoint` (String) A string that specifies the endpoint URL to submit the logout response. If a value is not provided, the `slo_endpoint` property value is used to submit SLO response.
+- `slo_window` (Number) An integer that defines how long (hours) PingOne can exchange logout messages with the application, specifically a logout request from the application, since the initial request. The minimum value is `1` hour and the maximum is `24` hours.
 - `sp_verification_certificate_ids` (Set of String) A list that specifies the certificate IDs used to verify the service provider signature.
 - `type` (String) A string that specifies the type associated with the application.  Options are `WEB_APP` and `CUSTOM_APP`. Defaults to `WEB_APP`.
 
+<a id="nestedblock--saml_options--idp_signing_key"></a>
+### Nested Schema for `saml_options.idp_signing_key`
+
+Required:
+
+- `algorithm` (String) Specifies the signature algorithm of the key. For RSA keys, options are `SHA256withRSA`, `SHA384withRSA` and `SHA512withRSA`. For elliptical curve (EC) keys, options are `SHA256withECDSA`, `SHA384withECDSA` and `SHA512withECDSA`.
+- `key_id` (String) An ID for the certificate key pair to be used by the identity provider to sign assertions and responses.
+
 ## Import
 
-Import is supported using the following syntax:
+Import is supported using the following syntax, where attributes in `<>` brackets are replaced with the relevant ID.  For example, `<environment_id>` should be replaced with the ID of the environment to import from.
 
 ```shell
 $ terraform import pingone_application.example <environment_id>/<application_id>

@@ -21,15 +21,19 @@ resource "pingone_application" "my_mobile_application" {
 
       integrity_detection {
         enabled = true
+
         cache_duration {
           amount = 30
           units  = "HOURS"
         }
+
+        google_play {
+          verification_type = "INTERNAL"
+          decryption_key    = var.google_play_integrity_api_decryption_key
+          verification_key  = var.google_play_integrity_api_verification_key
+        }
       }
     }
-
-    bundle_id    = "org.bxretail.mobileapp"
-    package_name = "org.bxretail.mobileapp"
   }
 }
 
@@ -38,7 +42,7 @@ resource "pingone_mfa_application_push_credential" "example_fcm" {
   application_id = pingone_application.my_mobile_application.id
 
   fcm {
-    key = var.fcm_key
+    google_service_account_credentials = var.google_service_account_credentials_json
   }
 }
 
@@ -86,11 +90,7 @@ resource "pingone_mfa_policy" "my_awesome_mfa_policy" {
     enabled = true
   }
 
-  security_key {
-    enabled = true
-  }
-
-  platform {
+  fido2 {
     enabled = true
   }
 
@@ -105,5 +105,4 @@ resource "pingone_mfa_policy" "my_awesome_mfa_policy" {
   email {
     enabled = false
   }
-
 }

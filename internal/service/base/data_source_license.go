@@ -3,6 +3,7 @@ package base
 import (
 	"context"
 	"net/http"
+	"time"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
@@ -447,9 +448,7 @@ func DatasourceLicense() *schema.Resource {
 func datasourcePingOneLicenseRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	p1Client := meta.(*client.Client)
 	apiClient := p1Client.API.ManagementAPIClient
-	ctx = context.WithValue(ctx, management.ContextServerVariables, map[string]string{
-		"suffix": p1Client.API.Region.URLSuffix,
-	})
+
 	var diags diag.Diagnostics
 
 	var resp management.License
@@ -462,12 +461,12 @@ func datasourcePingOneLicenseRead(ctx context.Context, d *schema.ResourceData, m
 	licenseResp, diags := sdk.ParseResponse(
 		ctx,
 
-		func() (interface{}, *http.Response, error) {
+		func() (any, *http.Response, error) {
 			return apiClient.LicensesApi.ReadOneLicense(ctx, organizationId, d.Get("license_id").(string)).Execute()
 		},
 		"ReadOneLicense",
 		sdk.DefaultCustomError,
-		sdk.DefaultRetryable,
+		nil,
 	)
 	if diags.HasError() {
 		return diags
@@ -481,9 +480,9 @@ func datasourcePingOneLicenseRead(ctx context.Context, d *schema.ResourceData, m
 	d.Set("status", resp.GetStatus())
 	d.Set("replaces_license_id", resp.GetReplacesLicense().Id)
 	d.Set("replaced_by_license_id", resp.GetReplacedByLicense().Id)
-	d.Set("begins_at", resp.GetBeginsAt())
-	d.Set("expires_at", resp.GetExpiresAt())
-	d.Set("terminates_at", resp.GetTerminatesAt())
+	d.Set("begins_at", resp.GetBeginsAt().Format(time.RFC3339))
+	d.Set("expires_at", resp.GetExpiresAt().Format(time.RFC3339))
+	d.Set("terminates_at", resp.GetTerminatesAt().Format(time.RFC3339))
 	d.Set("assigned_environments_count", int(resp.GetAssignedEnvironmentsCount()))
 
 	d.Set("advanced_services", flattenLicenseAdvancedServices(resp.GetAdvancedServices()))

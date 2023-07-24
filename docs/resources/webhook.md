@@ -63,15 +63,19 @@ Required:
 
 - `included_action_types` (Set of String) A non-empty list that specifies the list of action types that should be matched for the webhook.
 
+Refer to the [PingOne API Reference - Subscription Action Types](https://apidocs.pingidentity.com/pingone/platform/v1/api/#subscription-action-types) documentation for a full list of configurable action types.
+
 Optional:
 
 - `included_application_ids` (Set of String) An array that specifies the list of applications (by ID) whose events are monitored by the webhook (maximum of 10 IDs in the array). If a list of applications is not provided, events are monitored for all applications in the environment.
 - `included_population_ids` (Set of String) An array that specifies the list of populations (by ID) whose events are monitored by the webhook (maximum of 10 IDs in the array). This property matches events for users in the specified populations, as opposed to events generated in which the user in one of the populations is the actor.
 - `included_tags` (Set of String) An array of tags that events must have to be monitored by the webhook. If tags are not specified, all events are monitored. Currently, the available tags are `adminIdentityEvent`. Identifies the event as the action of an administrator on other administrators.
+- `ip_address_exposed` (Boolean) A boolean that specifies whether the IP address of an actor should be present in the source section of the event. Defaults to `false`.
+- `useragent_exposed` (Boolean) A boolean that specifies whether the User-Agent HTTP header of an event should be present in the source section of the event. Defaults to `false`.
 
 ## Import
 
-Import is supported using the following syntax:
+Import is supported using the following syntax, where attributes in `<>` brackets are replaced with the relevant ID.  For example, `<environment_id>` should be replaced with the ID of the environment to import from.
 
 ```shell
 $ terraform import pingone_webhook.example <environment_id>/<webhook_id>

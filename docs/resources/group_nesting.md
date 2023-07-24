@@ -41,8 +41,8 @@ resource "pingone_group_nesting" "my_group_nesting" {
 ### Required
 
 - `environment_id` (String) The ID of the environment to create the group in.
-- `group_id` (String) The ID of the environment to create the group in.
-- `nested_group_id` (String) The ID of the environment to create the group in.
+- `group_id` (String) The ID of the parent group to assign the nested group to.
+- `nested_group_id` (String) The ID of the group to configure as a nested group.
 
 ### Read-Only
 
@@ -51,7 +51,7 @@ resource "pingone_group_nesting" "my_group_nesting" {
 
 ## Import
 
-Import is supported using the following syntax:
+Import is supported using the following syntax, where attributes in `<>` brackets are replaced with the relevant ID.  For example, `<environment_id>` should be replaced with the ID of the environment to import from.
 
 ```shell
 $ terraform import pingone_group_nesting.example <environment_id>/<group_id>/<group_nesting_id>

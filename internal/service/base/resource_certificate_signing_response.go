@@ -118,9 +118,7 @@ func ResourceCertificateSigningResponse() *schema.Resource {
 func resourceCertificateSigningResponseCreate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	p1Client := meta.(*client.Client)
 	apiClient := p1Client.API.ManagementAPIClient
-	ctx = context.WithValue(ctx, management.ContextServerVariables, map[string]string{
-		"suffix": p1Client.API.Region.URLSuffix,
-	})
+
 	var diags diag.Diagnostics
 
 	archive := []byte(d.Get("pem_ca_response_file").(string))
@@ -128,7 +126,7 @@ func resourceCertificateSigningResponseCreate(ctx context.Context, d *schema.Res
 	resp, diags := sdk.ParseResponse(
 		ctx,
 
-		func() (interface{}, *http.Response, error) {
+		func() (any, *http.Response, error) {
 			return apiClient.CertificateManagementApi.ImportCSRResponse(ctx, d.Get("environment_id").(string), d.Get("key_id").(string)).File(&archive).Execute()
 		},
 		"ImportCSRResponse",
@@ -149,15 +147,13 @@ func resourceCertificateSigningResponseCreate(ctx context.Context, d *schema.Res
 func resourceCertificateSigningResponseRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	p1Client := meta.(*client.Client)
 	apiClient := p1Client.API.ManagementAPIClient
-	ctx = context.WithValue(ctx, management.ContextServerVariables, map[string]string{
-		"suffix": p1Client.API.Region.URLSuffix,
-	})
+
 	var diags diag.Diagnostics
 
 	resp, diags := sdk.ParseResponse(
 		ctx,
 
-		func() (interface{}, *http.Response, error) {
+		func() (any, *http.Response, error) {
 			return apiClient.CertificateManagementApi.GetKey(ctx, d.Get("environment_id").(string), d.Id()).Accept(management.ENUMGETKEYACCEPTHEADER_JSON).Execute()
 		},
 		"GetKey",

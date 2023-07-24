@@ -3,7 +3,7 @@ SWEEP_DIR=./internal/sweep
 NAMESPACE=pingidentity
 PKG_NAME=pingone
 BINARY=terraform-provider-${NAME}
-VERSION=0.8.1
+VERSION=0.19.0
 OS_ARCH=linux_amd64
 
 default: build
@@ -12,7 +12,7 @@ tools:
 	go generate -tags tools tools/tools.go
 
 build: fmtcheck
-	go install -ldflags="-X github.com/pingidentity/terraform-provider-pingone/main.version=$(VERSION)"
+	go install -ldflags="-X main.version=$(VERSION)"
 
 generate: fmtcheck
 	PINGONE_CLIENT_ID= PINGONE_CLIENT_SECRET= PINGONE_ENVIRONMENT_ID= PINGONE_API_ACCESS_TOKEN= PINGONE_REGION= PINGONE_ORGANIZATION_ID= go generate ./...
@@ -50,7 +50,7 @@ depscheck:
 	@git diff --exit-code -- go.mod go.sum || \
 		(echo; echo "Unexpected difference in go.mod/go.sum files. Run 'go mod tidy' command or revert any go.mod/go.sum changes and commit."; exit 1)
 
-lint: golangci-lint providerlint importlint tflint
+lint: golangci-lint providerlint importlint tflint terrafmtcheck
 
 golangci-lint:
 	@echo "==> Checking source code with golangci-lint..."
@@ -90,6 +90,6 @@ terrafmtcheck:
 		exit 1; \
 	fi
 
-devcheck: build vet tools generate docscategorycheck lint terrafmtcheck test sweep testacc
+devcheck: build vet tools generate terrafmt docscategorycheck lint test sweep testacc
 
 .PHONY: tools build generate docscategorycheck test testacc sweep vet fmtcheck depscheck lint golangci-lint importlint providerlint tflint terrafmt terrafmtcheck

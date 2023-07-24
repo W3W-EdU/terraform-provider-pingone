@@ -70,9 +70,7 @@ func DatasourceLanguage() *schema.Resource {
 func datasourcePingOneLanguageRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	p1Client := meta.(*client.Client)
 	apiClient := p1Client.API.ManagementAPIClient
-	ctx = context.WithValue(ctx, management.ContextServerVariables, map[string]string{
-		"suffix": p1Client.API.Region.URLSuffix,
-	})
+
 	var diags diag.Diagnostics
 
 	var resp *management.Language
@@ -88,12 +86,12 @@ func datasourcePingOneLanguageRead(ctx context.Context, d *schema.ResourceData, 
 		languageResp, diags := sdk.ParseResponse(
 			ctx,
 
-			func() (interface{}, *http.Response, error) {
+			func() (any, *http.Response, error) {
 				return apiClient.LanguagesApi.ReadOneLanguage(ctx, d.Get("environment_id").(string), v.(string)).Execute()
 			},
 			"ReadOneLanguage",
 			sdk.DefaultCustomError,
-			sdk.DefaultRetryable,
+			nil,
 		)
 		if diags.HasError() {
 			return diags
@@ -136,12 +134,12 @@ func findLanguageByLocale(ctx context.Context, apiClient *management.APIClient, 
 	respList, diags := sdk.ParseResponse(
 		ctx,
 
-		func() (interface{}, *http.Response, error) {
+		func() (any, *http.Response, error) {
 			return apiClient.LanguagesApi.ReadLanguages(ctx, environmentID).Execute()
 		},
 		"ReadAllLanguages",
 		sdk.DefaultCustomError,
-		sdk.DefaultRetryable,
+		nil,
 	)
 	if diags.HasError() {
 		return nil, diags

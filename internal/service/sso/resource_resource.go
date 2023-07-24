@@ -7,6 +7,7 @@ import (
 	"regexp"
 	"strings"
 
+	frameworkdiag "github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
@@ -14,6 +15,7 @@ import (
 	"github.com/patrickcping/pingone-go-sdk-v2/management"
 	"github.com/patrickcping/pingone-go-sdk-v2/pingone/model"
 	client "github.com/pingidentity/terraform-provider-pingone/internal/client"
+	"github.com/pingidentity/terraform-provider-pingone/internal/framework"
 	"github.com/pingidentity/terraform-provider-pingone/internal/sdk"
 	"github.com/pingidentity/terraform-provider-pingone/internal/verify"
 )
@@ -98,9 +100,7 @@ func ResourceResource() *schema.Resource {
 func resourceResourceCreate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	p1Client := meta.(*client.Client)
 	apiClient := p1Client.API.ManagementAPIClient
-	ctx = context.WithValue(ctx, management.ContextServerVariables, map[string]string{
-		"suffix": p1Client.API.Region.URLSuffix,
-	})
+
 	var diags diag.Diagnostics
 
 	resource := *management.NewResource(d.Get("name").(string)) // Resource |  (optional)
@@ -125,7 +125,7 @@ func resourceResourceCreate(ctx context.Context, d *schema.ResourceData, meta in
 	resp, diags := sdk.ParseResponse(
 		ctx,
 
-		func() (interface{}, *http.Response, error) {
+		func() (any, *http.Response, error) {
 			return apiClient.ResourcesApi.CreateResource(ctx, d.Get("environment_id").(string)).Resource(resource).Execute()
 		},
 		"CreateResource",
@@ -146,9 +146,7 @@ func resourceResourceCreate(ctx context.Context, d *schema.ResourceData, meta in
 func resourceResourceRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	p1Client := meta.(*client.Client)
 	apiClient := p1Client.API.ManagementAPIClient
-	ctx = context.WithValue(ctx, management.ContextServerVariables, map[string]string{
-		"suffix": p1Client.API.Region.URLSuffix,
-	})
+
 	var diags diag.Diagnostics
 
 	respObject, diags := fetchResource(ctx, apiClient, d.Get("environment_id").(string), d.Id())
@@ -176,7 +174,7 @@ func resourceResourceRead(ctx context.Context, d *schema.ResourceData, meta inte
 			respSecret, diags := sdk.ParseResponse(
 				ctx,
 
-				func() (interface{}, *http.Response, error) {
+				func() (any, *http.Response, error) {
 					return apiClient.ResourceClientSecretApi.ReadResourceSecret(ctx, d.Get("environment_id").(string), d.Id()).Execute()
 				},
 				"ReadResourceSecret",
@@ -250,9 +248,7 @@ func resourceResourceRead(ctx context.Context, d *schema.ResourceData, meta inte
 func resourceResourceUpdate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	p1Client := meta.(*client.Client)
 	apiClient := p1Client.API.ManagementAPIClient
-	ctx = context.WithValue(ctx, management.ContextServerVariables, map[string]string{
-		"suffix": p1Client.API.Region.URLSuffix,
-	})
+
 	var diags diag.Diagnostics
 
 	resource := *management.NewResource(d.Get("name").(string)) // Resource |  (optional)
@@ -282,12 +278,12 @@ func resourceResourceUpdate(ctx context.Context, d *schema.ResourceData, meta in
 	_, diags = sdk.ParseResponse(
 		ctx,
 
-		func() (interface{}, *http.Response, error) {
+		func() (any, *http.Response, error) {
 			return apiClient.ResourcesApi.UpdateResource(ctx, d.Get("environment_id").(string), d.Id()).Resource(resource).Execute()
 		},
 		"UpdateResource",
 		sdk.DefaultCustomError,
-		sdk.DefaultRetryable,
+		nil,
 	)
 	if diags.HasError() {
 		return diags
@@ -299,21 +295,19 @@ func resourceResourceUpdate(ctx context.Context, d *schema.ResourceData, meta in
 func resourceResourceDelete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	p1Client := meta.(*client.Client)
 	apiClient := p1Client.API.ManagementAPIClient
-	ctx = context.WithValue(ctx, management.ContextServerVariables, map[string]string{
-		"suffix": p1Client.API.Region.URLSuffix,
-	})
+
 	var diags diag.Diagnostics
 
 	_, diags = sdk.ParseResponse(
 		ctx,
 
-		func() (interface{}, *http.Response, error) {
+		func() (any, *http.Response, error) {
 			r, err := apiClient.ResourcesApi.DeleteResource(ctx, d.Get("environment_id").(string), d.Id()).Execute()
 			return nil, r, err
 		},
 		"DeleteResource",
 		sdk.CustomErrorResourceNotFoundWarning,
-		sdk.DefaultRetryable,
+		nil,
 	)
 	if diags.HasError() {
 		return diags
@@ -340,13 +334,14 @@ func resourceResourceImport(ctx context.Context, d *schema.ResourceData, meta in
 	return []*schema.ResourceData{d}, nil
 }
 
+// replace with fetchResource_Framework when migrating to the plugin framework
 func fetchResource(ctx context.Context, apiClient *management.APIClient, environmentID, resourceID string) (*management.Resource, diag.Diagnostics) {
 	var diags diag.Diagnostics
 
 	resp, diags := sdk.ParseResponse(
 		ctx,
 
-		func() (interface{}, *http.Response, error) {
+		func() (any, *http.Response, error) {
 			return apiClient.ResourcesApi.ReadOneResource(ctx, environmentID, resourceID).Execute()
 		},
 		"ReadOneResource",
@@ -358,6 +353,28 @@ func fetchResource(ctx context.Context, apiClient *management.APIClient, environ
 	}
 
 	respObject := resp.(*management.Resource)
+
+	return respObject, diags
+}
+
+func fetchResource_Framework(ctx context.Context, apiClient *management.APIClient, environmentID, resourceID string) (*management.Resource, frameworkdiag.Diagnostics) {
+	var diags frameworkdiag.Diagnostics
+
+	var respObject *management.Resource
+	diags.Append(framework.ParseResponse(
+		ctx,
+
+		func() (any, *http.Response, error) {
+			return apiClient.ResourcesApi.ReadOneResource(ctx, environmentID, resourceID).Execute()
+		},
+		"ReadOneResource",
+		framework.DefaultCustomError,
+		sdk.DefaultCreateReadRetryable,
+		&respObject,
+	)...)
+	if diags.HasError() {
+		return nil, diags
+	}
 
 	return respObject, diags
 }

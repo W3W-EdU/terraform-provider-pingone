@@ -1,0 +1,32 @@
+---
+page_title: "{{.Name}} {{.Type}} - {{.RenderedProviderName}}"
+subcategory: "SSO"
+description: |-
+{{ .Description | plainmarkdown | trimspace | prefixlines "  " }}
+---
+
+# {{.Name}} ({{.Type}})
+
+{{ .Description | trimspace }}
+
+~> This resource is for assignment of a DaVinci flow policy only.  For assignment of a PingOne native sign-on policy, use the `pingone_application_sign_on_policy_assignment` resource.
+
+-> Flow policies can be mapped to administrator defined applications that are managed through the `pingone_application` resource, and built-in system applications that are managed through the `pingone_system_application` resource.
+
+{{ if .HasExample -}}
+## Example Usage
+
+The following example includes a `davinci_application` resource.  More information about the use of the `davinci_application` resource, and other DaVinci provider resources can be found at the [DaVinci Provider registry documentation](https://registry.terraform.io/providers/pingidentity/davinci/latest/docs).
+
+{{ tffile (printf "%s%s%s" "examples/resources/" .Name "/resource.tf") }}
+{{- end }}
+
+{{ .SchemaMarkdown | trimspace }}
+
+{{ if .HasImport -}}
+## Import
+
+Import is supported using the following syntax, where attributes in `<>` brackets are replaced with the relevant ID.  For example, `<environment_id>` should be replaced with the ID of the environment to import from.
+
+{{ codefile "shell" (printf "%s%s%s" "examples/resources/" .Name "/import.sh") }}
+{{- end }}

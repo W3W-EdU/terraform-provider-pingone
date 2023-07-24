@@ -28,8 +28,8 @@ resource "pingone_image" "theme_background" {
   image_file_base64 = filebase64("../path/to/background-image.jpg")
 }
 
-resource "pingone_branding_theme" {
-  environment_id = data.pingone_environment.general_test.id
+resource "pingone_branding_theme" "my_awesome_theme" {
+  environment_id = pingone_environment.my_environment.id
 
   name     = "My Awesome Theme"
   template = "split"
@@ -50,7 +50,6 @@ resource "pingone_branding_theme" {
   body_text_color    = "#263956"
   link_text_color    = "#263956"
   button_color       = "#263956"
-
 }
 ```
 
@@ -63,19 +62,19 @@ resource "pingone_branding_theme" {
 - `button_color` (String) The button color for the theme. It must be a valid hexadecimal color code.
 - `button_text_color` (String) The button text color for the branding theme. It must be a valid hexadecimal color code.
 - `card_color` (String) The card color for the branding theme. It must be a valid hexadecimal color code.
-- `environment_id` (String) The ID of the environment to set branding settings for.
+- `environment_id` (String) The ID of the environment to set branding settings for.  Must be a valid PingOne resource ID.  This field is immutable and will trigger a replace plan if changed.
 - `heading_text_color` (String) The heading text color for the branding theme. It must be a valid hexadecimal color code.
 - `link_text_color` (String) The hyperlink text color for the branding theme. It must be a valid hexadecimal color code.
-- `name` (String) The name of the branding theme.
-- `template` (String) The template name of the branding theme associated with the environment. Options are `default`, `focus`, `mural`, `slate`, and `split`.
+- `name` (String) A string that specifies the unique name of the branding theme.
+- `template` (String) The template name of the branding theme associated with the environment.  Options are `default`, `focus`, `mural`, `slate`, `split`.
 
 ### Optional
 
-- `background_color` (String) The background color for the theme. It must be a valid hexadecimal color code.
-- `background_image` (Block List, Max: 1) The HREF and the ID for the background image. (see [below for nested schema](#nestedblock--background_image))
+- `background_color` (String) The background color for the theme. It must be a valid hexadecimal color code.  At least one of the following must be defined: `background_image`, `background_color`, `use_default_background`.
+- `background_image` (Block List) A single block that specifies the HREF and ID for the background image.  At least one of the following must be defined: `background_image`, `background_color`, `use_default_background`. (see [below for nested schema](#nestedblock--background_image))
 - `footer_text` (String) The text to be displayed in the footer of the branding theme.
-- `logo` (Block List, Max: 1) The HREF and the ID for the company logo, for this branding template.  If not set, the environment's default logo (set with the `pingone_branding_settings` resource) will be applied. (see [below for nested schema](#nestedblock--logo))
-- `use_default_background` (Boolean) A boolean to specify that the background should be set to the theme template's default.
+- `logo` (Block List) A single block that specifies the HREF and ID for the company logo, for this branding template.  If not set, the environment's default logo (set with the `pingone_branding_settings` resource) will be applied. (see [below for nested schema](#nestedblock--logo))
+- `use_default_background` (Boolean) A boolean to specify that the background should be set to the theme template's default.  At least one of the following must be defined: `background_image`, `background_color`, `use_default_background`.
 
 ### Read-Only
 
@@ -87,8 +86,8 @@ resource "pingone_branding_theme" {
 
 Required:
 
-- `href` (String) The URL or fully qualified path to the logo file used for branding.  This can be retrieved from the `uploaded_image[0].href` parameter of the `pingone_image` resource.
-- `id` (String) The ID of the logo image.  This can be retrieved from the `id` parameter of the `pingone_image` resource.
+- `href` (String) The URL or fully qualified path to the background image file used for branding.  This can be retrieved from the `uploaded_image[0].href` parameter of the `pingone_image` resource.
+- `id` (String) The ID of the background image.  This can be retrieved from the `id` parameter of the `pingone_image` resource.  Must be a valid PingOne resource ID.
 
 
 <a id="nestedblock--logo"></a>
@@ -97,11 +96,11 @@ Required:
 Required:
 
 - `href` (String) The URL or fully qualified path to the logo file used for branding.  This can be retrieved from the `uploaded_image[0].href` parameter of the `pingone_image` resource.
-- `id` (String) The ID of the logo image.  This can be retrieved from the `id` parameter of the `pingone_image` resource.
+- `id` (String) The ID of the logo image.  This can be retrieved from the `id` parameter of the `pingone_image` resource.  Must be a valid PingOne resource ID.
 
 ## Import
 
-Import is supported using the following syntax:
+Import is supported using the following syntax, where attributes in `<>` brackets are replaced with the relevant ID.  For example, `<environment_id>` should be replaced with the ID of the environment to import from.
 
 ```shell
 $ terraform import pingone_branding_theme.example <environment_id>/<branding_theme_id>

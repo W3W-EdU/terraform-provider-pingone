@@ -15,14 +15,7 @@ To get started using the PingOne Terraform provider, first you'll need an active
 
 ### Configure PingOne for Terraform access
 
-The following steps describe how to connect Terraform to your PingOne instance:
-
-1. Log in to your PingOne Administration Console.  On registration for a trial, a link will be sent to your provided email address.
-2. Open the *Administrators* environment
-3. Follow the guide [Create an application connection](https://apidocs.pingidentity.com/pingone/main/v1/api/#create-an-application-connection) to create a worker application.  Choose an appropriate name (e.g. *PingOne Terraform Provider*)
-4. In the resulting application on the *Configuration* tab, expand the *General* section and extract the *Client ID*, *Client Secret* and *Environment ID*.  These are used in the following examples to authenticate the provider to the PingOne organisation.
-
-Authenticating the provider also requires a code that represents the PingOne region.  See the [Schema](#schema) section below for a list of possible values.
+For detailed instructions on how to prepare PingOne for Terraform access, see the [PingOne getting started guide](https://terraform.pingidentity.com/getting-started/pingone/#configure-pingone-for-terraform-access) at [terraform.pingidentity.com](https://terraform.pingidentity.com).
 
 ## Example Usage
 
@@ -33,7 +26,7 @@ terraform {
   required_providers {
     pingone = {
       source  = "pingidentity/pingone"
-      version = "~> 0.1"
+      version = "~> 0.19"
     }
   }
 }
@@ -47,7 +40,7 @@ provider "pingone" {
   force_delete_production_type = false
 }
 
-resource "pingone_environment" "development" {
+resource "pingone_environment" "my_environment" {
   # ...
 }
 ```
@@ -59,7 +52,7 @@ terraform {
   required_providers {
     pingone = {
       source  = "pingidentity/pingone"
-      version = "~> 0.1"
+      version = "~> 0.19"
     }
   }
 }
@@ -67,7 +60,7 @@ terraform {
 provider "pingone" {
 }
 
-resource "pingone_environment" "development" {
+resource "pingone_environment" "my_environment" {
   # ...
 }
 ```
@@ -87,7 +80,7 @@ terraform {
   required_providers {
     pingone = {
       source  = "pingidentity/pingone"
-      version = "~> 0.1"
+      version = "~> 0.19"
     }
   }
 }
@@ -95,7 +88,7 @@ terraform {
 provider "pingone" {
 }
 
-resource "pingone_environment" "development" {
+resource "pingone_environment" "my_environment" {
   # ...
 }
 ```
@@ -111,12 +104,21 @@ $ terraform plan
 
 ### Required
 
-- `region` (String) The PingOne region to use.  Options are `AsiaPacific` `Canada` `Europe` and `NorthAmerica`.  Default value can be set with the `PINGONE_REGION` environment variable.
-
-### Optional
-
+- `region` (String) The PingOne region to use.  Options are `AsiaPacific`, `Canada`, `Europe` and `NorthAmerica`.  Default value can be set with the `PINGONE_REGION` environment variable.
 - `api_access_token` (String) The access token used for provider resource management against the PingOne management API.  Default value can be set with the `PINGONE_API_ACCESS_TOKEN` environment variable.  Must provide only one of `api_access_token` (when obtaining the worker token outside of the provider) and `client_id` (when the provider should fetch the worker token during operations).
 - `client_id` (String) Client ID for the worker app client.  Default value can be set with the `PINGONE_CLIENT_ID` environment variable.  Must provide only one of `api_access_token` (when obtaining the worker token outside of the provider) and `client_id` (when the provider should fetch the worker token during operations).  Must be configured with `client_secret` and `environment_id`.
 - `client_secret` (String) Client secret for the worker app client.  Default value can be set with the `PINGONE_CLIENT_SECRET` environment variable.  Must be configured with `client_id` and `environment_id`.
 - `environment_id` (String) Environment ID for the worker app client.  Default value can be set with the `PINGONE_ENVIRONMENT_ID` environment variable.  Must be configured with `client_id` and `client_secret`.
+
+### Optional
+
 - `force_delete_production_type` (Boolean) Choose whether to force-delete any configuration that has a `PRODUCTION` type parameter.  The platform default is that `PRODUCTION` type configuration will not destroy without intervention to protect stored data.  By default this parameter is set to `false` and can be overridden with the `PINGONE_FORCE_DELETE_PRODUCTION_TYPE` environment variable.
+- `service_endpoints` (Block List) A single block containing configuration items to override the service API endpoints of PingOne. (see [below for nested schema](#nestedblock--service_endpoints))
+
+<a id="nestedblock--service_endpoints"></a>
+### Nested Schema for `service_endpoints`
+
+Required:
+
+- `api_hostname` (String) Hostname for the PingOne management service API, for example, `api.pingone.eu`.  Default value can be set with the `PINGONE_API_SERVICE_HOSTNAME` environment variable.
+- `auth_hostname` (String) Hostname for the PingOne authentication service API, for example, `auth.pingone.eu`.  Default value can be set with the `PINGONE_AUTH_SERVICE_HOSTNAME` environment variable.

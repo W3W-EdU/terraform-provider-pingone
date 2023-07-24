@@ -9,6 +9,8 @@ description: |-
 
 Resource to create and manage a PingOne Environment's MFA Settings
 
+~> Only one `pingone_mfa_settings` resource should be configured for an environment.  If multiple `pingone_mfa_settings` resource definitions exist in HCL code, these are likely to conflict with each other on apply.
+
 ## Example Usage
 
 ```terraform
@@ -25,6 +27,8 @@ resource "pingone_mfa_settings" "mfa_settings" {
     duration_seconds = 600
   }
 
+  phone_extensions_enabled = true
+
 }
 ```
 
@@ -40,6 +44,7 @@ resource "pingone_mfa_settings" "mfa_settings" {
 
 - `authentication` (Block List, Max: 1, Deprecated) **This property is deprecated.**  Device selection settings should now be configured on the device policy, the `pingone_mfa_policy` resource. An object that contains the device selection settings. (see [below for nested schema](#nestedblock--authentication))
 - `lockout` (Block List, Max: 1) An object that contains lockout settings. (see [below for nested schema](#nestedblock--lockout))
+- `phone_extensions_enabled` (Boolean) A boolean when set to `true` allows one-time passwords to be delivered via voice to phone numbers that include extensions. Set to `false` to disable support for extensions. Defaults to `false`.
 
 ### Read-Only
 
@@ -78,7 +83,7 @@ Optional:
 
 ## Import
 
-Import is supported using the following syntax:
+Import is supported using the following syntax, where attributes in `<>` brackets are replaced with the relevant ID.  For example, `<environment_id>` should be replaced with the ID of the environment to import from.
 
 ```shell
 $ terraform import pingone_mfa_settings.example <environment_id>

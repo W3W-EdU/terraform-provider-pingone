@@ -71,9 +71,7 @@ func ResourceResourceScopePingOneAPI() *schema.Resource {
 func resourceResourceScopePingOneAPICreate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	p1Client := meta.(*client.Client)
 	apiClient := p1Client.API.ManagementAPIClient
-	ctx = context.WithValue(ctx, management.ContextServerVariables, map[string]string{
-		"suffix": p1Client.API.Region.URLSuffix,
-	})
+
 	var diags diag.Diagnostics
 
 	resource, diags := getPingOneAPIResource(ctx, apiClient, d.Get("environment_id").(string))
@@ -93,12 +91,12 @@ func resourceResourceScopePingOneAPICreate(ctx context.Context, d *schema.Resour
 		resp, diags = sdk.ParseResponse(
 			ctx,
 
-			func() (interface{}, *http.Response, error) {
+			func() (any, *http.Response, error) {
 				return apiClient.ResourceScopesApi.UpdateResourceScope(ctx, d.Get("environment_id").(string), resource.GetId(), *v).ResourceScope(*resourceScope).Execute()
 			},
 			"UpdateResourceScope-PingOneAPI-Create",
 			sdk.DefaultCustomError,
-			sdk.DefaultRetryable,
+			nil,
 		)
 
 	} else {
@@ -106,7 +104,7 @@ func resourceResourceScopePingOneAPICreate(ctx context.Context, d *schema.Resour
 		resp, diags = sdk.ParseResponse(
 			ctx,
 
-			func() (interface{}, *http.Response, error) {
+			func() (any, *http.Response, error) {
 				return apiClient.ResourceScopesApi.CreateResourceScope(ctx, d.Get("environment_id").(string), resource.GetId()).ResourceScope(*resourceScope).Execute()
 			},
 			"CreateResourceScope-PingOneAPI",
@@ -129,9 +127,7 @@ func resourceResourceScopePingOneAPICreate(ctx context.Context, d *schema.Resour
 func resourceResourceScopePingOneAPIRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	p1Client := meta.(*client.Client)
 	apiClient := p1Client.API.ManagementAPIClient
-	ctx = context.WithValue(ctx, management.ContextServerVariables, map[string]string{
-		"suffix": p1Client.API.Region.URLSuffix,
-	})
+
 	var diags diag.Diagnostics
 
 	resource, diags := getPingOneAPIResource(ctx, apiClient, d.Get("environment_id").(string))
@@ -142,7 +138,7 @@ func resourceResourceScopePingOneAPIRead(ctx context.Context, d *schema.Resource
 	resp, diags := sdk.ParseResponse(
 		ctx,
 
-		func() (interface{}, *http.Response, error) {
+		func() (any, *http.Response, error) {
 			return apiClient.ResourceScopesApi.ReadOneResourceScope(ctx, d.Get("environment_id").(string), resource.GetId(), d.Id()).Execute()
 		},
 		"ReadOneResourceScope-PingOneAPI",
@@ -182,9 +178,7 @@ func resourceResourceScopePingOneAPIRead(ctx context.Context, d *schema.Resource
 func resourceResourceScopePingOneAPIUpdate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	p1Client := meta.(*client.Client)
 	apiClient := p1Client.API.ManagementAPIClient
-	ctx = context.WithValue(ctx, management.ContextServerVariables, map[string]string{
-		"suffix": p1Client.API.Region.URLSuffix,
-	})
+
 	var diags diag.Diagnostics
 
 	resource, diags := getPingOneAPIResource(ctx, apiClient, d.Get("environment_id").(string))
@@ -200,12 +194,12 @@ func resourceResourceScopePingOneAPIUpdate(ctx context.Context, d *schema.Resour
 	_, diags = sdk.ParseResponse(
 		ctx,
 
-		func() (interface{}, *http.Response, error) {
+		func() (any, *http.Response, error) {
 			return apiClient.ResourceScopesApi.UpdateResourceScope(ctx, d.Get("environment_id").(string), resource.GetId(), d.Id()).ResourceScope(*resourceScope).Execute()
 		},
 		"UpdateResourceScope-PingOneAPI",
 		sdk.DefaultCustomError,
-		sdk.DefaultRetryable,
+		nil,
 	)
 	if diags.HasError() {
 		return diags
@@ -217,9 +211,7 @@ func resourceResourceScopePingOneAPIUpdate(ctx context.Context, d *schema.Resour
 func resourceResourceScopePingOneAPIDelete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	p1Client := meta.(*client.Client)
 	apiClient := p1Client.API.ManagementAPIClient
-	ctx = context.WithValue(ctx, management.ContextServerVariables, map[string]string{
-		"suffix": p1Client.API.Region.URLSuffix,
-	})
+
 	var diags diag.Diagnostics
 
 	resource, diags := getPingOneAPIResource(ctx, apiClient, d.Get("environment_id").(string))
@@ -239,12 +231,12 @@ func resourceResourceScopePingOneAPIDelete(ctx context.Context, d *schema.Resour
 		_, diags = sdk.ParseResponse(
 			ctx,
 
-			func() (interface{}, *http.Response, error) {
+			func() (any, *http.Response, error) {
 				return apiClient.ResourceScopesApi.UpdateResourceScope(ctx, d.Get("environment_id").(string), resource.GetId(), d.Id()).ResourceScope(*resourceScope).Execute()
 			},
 			"UpdateResourceScope-PingOneAPI-Delete",
 			sdk.DefaultCustomError,
-			sdk.DefaultRetryable,
+			nil,
 		)
 		if diags.HasError() {
 			return diags
@@ -254,13 +246,13 @@ func resourceResourceScopePingOneAPIDelete(ctx context.Context, d *schema.Resour
 		_, diags = sdk.ParseResponse(
 			ctx,
 
-			func() (interface{}, *http.Response, error) {
+			func() (any, *http.Response, error) {
 				r, err := apiClient.ResourceScopesApi.DeleteResourceScope(ctx, d.Get("environment_id").(string), resource.GetId(), d.Id()).Execute()
 				return nil, r, err
 			},
 			"DeleteResourceScope-PingOneAPI",
 			sdk.CustomErrorResourceNotFoundWarning,
-			sdk.DefaultRetryable,
+			nil,
 		)
 		if diags.HasError() {
 			return diags

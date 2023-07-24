@@ -395,6 +395,31 @@ func ResourceIdentityProvider() *schema.Resource {
 							Required:         true,
 							ValidateDiagFunc: validation.ToDiagFunc(validation.IsURLWithHTTPorHTTPS),
 						},
+						"slo_binding": {
+							Description:      fmt.Sprintf("A string that specifies the binding protocol to be used for the logout response. Options are `%s` and `%s`.  Existing configurations with no data default to `%s`.", string(management.ENUMIDENTITYPROVIDERSAMLSLOBINDING_REDIRECT), string(management.ENUMIDENTITYPROVIDERSAMLSLOBINDING_POST), string(management.ENUMIDENTITYPROVIDERSAMLSLOBINDING_POST)),
+							Type:             schema.TypeString,
+							ValidateDiagFunc: validation.ToDiagFunc(validation.StringInSlice([]string{string(management.ENUMIDENTITYPROVIDERSAMLSLOBINDING_REDIRECT), string(management.ENUMIDENTITYPROVIDERSAMLSLOBINDING_POST)}, false)),
+							Optional:         true,
+							Default:          string(management.ENUMIDENTITYPROVIDERSAMLSLOBINDING_POST),
+						},
+						"slo_endpoint": {
+							Description:      "A string that specifies the logout endpoint URL. This is an optional property. However, if a logout endpoint URL is not defined, logout actions result in an error.",
+							Type:             schema.TypeString,
+							Optional:         true,
+							ValidateDiagFunc: validation.ToDiagFunc(validation.IsURLWithHTTPorHTTPS),
+						},
+						"slo_response_endpoint": {
+							Description:      "A string that specifies the endpoint URL to submit the logout response. If a value is not provided, the `slo_endpoint` property value is used to submit SLO response.",
+							Type:             schema.TypeString,
+							Optional:         true,
+							ValidateDiagFunc: validation.ToDiagFunc(validation.IsURLWithHTTPorHTTPS),
+						},
+						"slo_window": {
+							Description:      "An integer that defines how long (hours) PingOne can exchange logout messages with the application, specifically a logout request from the application, since the initial request. The minimum value is `1` hour and the maximum is `24` hours.",
+							Type:             schema.TypeInt,
+							Optional:         true,
+							ValidateDiagFunc: validation.ToDiagFunc(validation.IntBetween(1, 24)),
+						},
 					},
 				},
 			},
@@ -425,9 +450,7 @@ func clientIdClientSecretSchema(providerName string) *schema.Resource {
 func resourceIdentityProviderCreate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	p1Client := meta.(*client.Client)
 	apiClient := p1Client.API.ManagementAPIClient
-	ctx = context.WithValue(ctx, management.ContextServerVariables, map[string]string{
-		"suffix": p1Client.API.Region.URLSuffix,
-	})
+
 	var diags diag.Diagnostics
 
 	idpRequest, diags := expandIdentityProvider(d)
@@ -438,7 +461,7 @@ func resourceIdentityProviderCreate(ctx context.Context, d *schema.ResourceData,
 	resp, diags := sdk.ParseResponse(
 		ctx,
 
-		func() (interface{}, *http.Response, error) {
+		func() (any, *http.Response, error) {
 			return apiClient.IdentityProvidersApi.CreateIdentityProvider(ctx, d.Get("environment_id").(string)).IdentityProvider(*idpRequest).Execute()
 		},
 		"CreateIdentityProvider",
@@ -479,15 +502,13 @@ func resourceIdentityProviderCreate(ctx context.Context, d *schema.ResourceData,
 func resourceIdentityProviderRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	p1Client := meta.(*client.Client)
 	apiClient := p1Client.API.ManagementAPIClient
-	ctx = context.WithValue(ctx, management.ContextServerVariables, map[string]string{
-		"suffix": p1Client.API.Region.URLSuffix,
-	})
+
 	var diags diag.Diagnostics
 
 	resp, diags := sdk.ParseResponse(
 		ctx,
 
-		func() (interface{}, *http.Response, error) {
+		func() (any, *http.Response, error) {
 			return apiClient.IdentityProvidersApi.ReadOneIdentityProvider(ctx, d.Get("environment_id").(string), d.Id()).Execute()
 		},
 		"ReadOneIdentityProvider",
@@ -730,9 +751,7 @@ func resourceIdentityProviderRead(ctx context.Context, d *schema.ResourceData, m
 func resourceIdentityProviderUpdate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	p1Client := meta.(*client.Client)
 	apiClient := p1Client.API.ManagementAPIClient
-	ctx = context.WithValue(ctx, management.ContextServerVariables, map[string]string{
-		"suffix": p1Client.API.Region.URLSuffix,
-	})
+
 	var diags diag.Diagnostics
 
 	idpRequest, diags := expandIdentityProvider(d)
@@ -743,12 +762,12 @@ func resourceIdentityProviderUpdate(ctx context.Context, d *schema.ResourceData,
 	_, diags = sdk.ParseResponse(
 		ctx,
 
-		func() (interface{}, *http.Response, error) {
+		func() (any, *http.Response, error) {
 			return apiClient.IdentityProvidersApi.UpdateIdentityProvider(ctx, d.Get("environment_id").(string), d.Id()).IdentityProvider(*idpRequest).Execute()
 		},
 		"UpdateIdentityProvider",
 		sdk.DefaultCustomError,
-		sdk.DefaultRetryable,
+		nil,
 	)
 	if diags.HasError() {
 		return diags
@@ -760,21 +779,19 @@ func resourceIdentityProviderUpdate(ctx context.Context, d *schema.ResourceData,
 func resourceIdentityProviderDelete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	p1Client := meta.(*client.Client)
 	apiClient := p1Client.API.ManagementAPIClient
-	ctx = context.WithValue(ctx, management.ContextServerVariables, map[string]string{
-		"suffix": p1Client.API.Region.URLSuffix,
-	})
+
 	var diags diag.Diagnostics
 
 	_, diags = sdk.ParseResponse(
 		ctx,
 
-		func() (interface{}, *http.Response, error) {
+		func() (any, *http.Response, error) {
 			r, err := apiClient.IdentityProvidersApi.DeleteIdentityProvider(ctx, d.Get("environment_id").(string), d.Id()).Execute()
 			return nil, r, err
 		},
 		"DeleteIdentityProvider",
 		sdk.CustomErrorResourceNotFoundWarning,
-		sdk.DefaultRetryable,
+		nil,
 	)
 	if diags.HasError() {
 		return diags
@@ -1199,6 +1216,22 @@ func expandIdPSAML(v []interface{}, common management.IdentityProviderCommon) (*
 			idpObj.SetSpSigning(*management.NewIdentityProviderSAMLAllOfSpSigning(*management.NewIdentityProviderSAMLAllOfSpSigningKey(v)))
 		}
 
+		if v1, ok := idp["slo_binding"].(string); ok && v1 != "" {
+			idpObj.SetSloBinding(management.EnumIdentityProviderSAMLSLOBinding(v1))
+		}
+
+		if v1, ok := idp["slo_endpoint"].(string); ok && v1 != "" {
+			idpObj.SetSloEndpoint(v1)
+		}
+
+		if v1, ok := idp["slo_response_endpoint"].(string); ok && v1 != "" {
+			idpObj.SetSloResponseEndpoint(v1)
+		}
+
+		if v1, ok := idp["slo_window"].(int); ok && v1 > 0 {
+			idpObj.SetSloWindow(int32(v1))
+		}
+
 		if v, ok := common.GetDescriptionOk(); ok {
 			idpObj.SetDescription(*v)
 		}
@@ -1297,6 +1330,30 @@ func flattenSAML(idpObject *management.IdentityProviderSAML) []interface{} {
 		item["sp_signing_key_id"] = v.GetKey().Id
 	} else {
 		item["sp_signing_key_id"] = nil
+	}
+
+	if v, ok := idpObject.GetSloBindingOk(); ok {
+		item["slo_binding"] = v
+	} else {
+		item["slo_binding"] = nil
+	}
+
+	if v, ok := idpObject.GetSloEndpointOk(); ok {
+		item["slo_endpoint"] = v
+	} else {
+		item["slo_endpoint"] = nil
+	}
+
+	if v, ok := idpObject.GetSloResponseEndpointOk(); ok {
+		item["slo_response_endpoint"] = v
+	} else {
+		item["slo_response_endpoint"] = nil
+	}
+
+	if v, ok := idpObject.GetSloWindowOk(); ok {
+		item["slo_window"] = v
+	} else {
+		item["slo_window"] = nil
 	}
 
 	items := make([]interface{}, 0)

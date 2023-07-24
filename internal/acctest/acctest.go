@@ -6,13 +6,13 @@ import (
 	"os"
 	"testing"
 
+	"github.com/hashicorp/terraform-plugin-go/tfprotov6"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/acctest"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/terraform"
-	"github.com/patrickcping/pingone-go-sdk-v2/management"
 	client "github.com/pingidentity/terraform-provider-pingone/internal/client"
 	"github.com/pingidentity/terraform-provider-pingone/internal/provider"
+	"github.com/pingidentity/terraform-provider-pingone/internal/provider/sdkv2"
 )
 
 // ProviderFactories is a static map containing only the main provider instance
@@ -33,14 +33,16 @@ var Provider *schema.Provider
 // The factory function will be invoked for every Terraform CLI command executed
 // to create a provider server to which the CLI can reattach.
 
+var ProtoV6ProviderFactories map[string]func() (tfprotov6.ProviderServer, error) = protoV6ProviderFactoriesInit(context.Background(), "pingone")
+
 func init() {
-	Provider = provider.New("dev")()
+	Provider = sdkv2.New(getProviderTestingVersion())()
 
 	// Always allocate a new provider instance each invocation, otherwise gRPC
 	// ProviderConfigure() can overwrite configuration during concurrent testing.
 	ProviderFactories = map[string]func() (*schema.Provider, error){
 		"pingone": func() (*schema.Provider, error) {
-			provider := provider.New("dev")()
+			provider := sdkv2.New(getProviderTestingVersion())()
 
 			if provider == nil {
 				return nil, fmt.Errorf("Cannot initiate provider factory")
@@ -48,6 +50,33 @@ func init() {
 			return provider, nil
 		},
 	}
+}
+
+func protoV6ProviderFactoriesInit(ctx context.Context, providerNames ...string) map[string]func() (tfprotov6.ProviderServer, error) {
+	factories := make(map[string]func() (tfprotov6.ProviderServer, error), len(providerNames))
+
+	for _, name := range providerNames {
+
+		factories[name] = func() (tfprotov6.ProviderServer, error) {
+			providerServerFactory, err := provider.ProviderServerFactoryV6(ctx, getProviderTestingVersion())
+
+			if err != nil {
+				return nil, err
+			}
+
+			return providerServerFactory(), nil
+		}
+	}
+
+	return factories
+}
+
+func getProviderTestingVersion() string {
+	returnVar := "dev"
+	if v := os.Getenv("PINGONE_TESTING_PROVIDER_VERSION"); v != "" {
+		returnVar = v
+	}
+	return returnVar
 }
 
 type TestData struct {
@@ -60,7 +89,17 @@ type MinMaxChecks struct {
 	Full    resource.TestCheckFunc
 }
 
+type EnumFeatureFlag string
+
+const (
+	ENUMFEATUREFLAG_DAVINCI EnumFeatureFlag = "DAVINCI"
+)
+
 func PreCheck(t *testing.T) {
+	PreCheckFeatureFlag(t, "")
+}
+
+func PreCheckFeatureFlag(t *testing.T, flag EnumFeatureFlag) {
 
 	if v := os.Getenv("PINGONE_CLIENT_ID"); v == "" {
 		t.Fatal("PINGONE_CLIENT_ID is missing and must be set")
@@ -78,6 +117,22 @@ func PreCheck(t *testing.T) {
 		t.Fatal("PINGONE_REGION is missing and must be set")
 	}
 
+	if v := os.Getenv("FEATURE_FLAG"); v != string(flag) {
+		t.Skipf("Skipping feature flag test.  Flag required: \"%s\"", string(flag))
+	}
+
+}
+
+func PreCheckOrganisation(t *testing.T) {
+
+	PreCheck(t)
+	if v := os.Getenv("PINGONE_ORGANIZATION_ID"); v == "" {
+		t.Fatal("PINGONE_ORGANIZATION_ID is missing and must be set")
+	}
+
+	if v := os.Getenv("PINGONE_ORGANIZATION_NAME"); v == "" {
+		t.Fatal("PINGONE_ORGANIZATION_NAME is missing and must be set")
+	}
 }
 
 func PreCheckEnvironment(t *testing.T) {
@@ -85,6 +140,22 @@ func PreCheckEnvironment(t *testing.T) {
 	PreCheck(t)
 	if v := os.Getenv("PINGONE_LICENSE_ID"); v == "" {
 		t.Fatal("PINGONE_LICENSE_ID is missing and must be set")
+	}
+}
+
+func PreCheckEnvironmentFeatureFlag(t *testing.T, flag EnumFeatureFlag) {
+
+	PreCheckFeatureFlag(t, flag)
+	if v := os.Getenv("PINGONE_LICENSE_ID"); v == "" {
+		t.Fatal("PINGONE_LICENSE_ID is missing and must be set")
+	}
+}
+
+func PreCheckEnvironmentDomainVerified(t *testing.T) {
+
+	PreCheckEnvironment(t)
+	if v := os.Getenv("PINGONE_VERIFIED_EMAIL_DOMAIN"); v == "" {
+		t.Fatal("PINGONE_VERIFIED_EMAIL_DOMAIN is missing and must be set")
 	}
 }
 
@@ -144,6 +215,22 @@ func PreCheckEnvironmentAndPKCS7(t *testing.T) {
 	}
 }
 
+func PreCheckEnvironmentAndGoogleJSONKey(t *testing.T) {
+
+	PreCheckEnvironment(t)
+	if v := os.Getenv("PINGONE_GOOGLE_JSON_KEY"); v == "" {
+		t.Fatal("PINGONE_GOOGLE_JSON_KEY is missing and must be set")
+	}
+}
+
+func PreCheckEnvironmentAndGoogleFirebaseCredentials(t *testing.T) {
+
+	PreCheckEnvironment(t)
+	if v := os.Getenv("PINGONE_GOOGLE_FIREBASE_CREDENTIALS"); v == "" {
+		t.Fatal("PINGONE_GOOGLE_FIREBASE_CREDENTIALS is missing and must be set")
+	}
+}
+
 func PreCheckEnvironmentAndPEM(t *testing.T) {
 
 	PreCheckEnvironment(t)
@@ -165,6 +252,42 @@ func PreCheckEnvironmentAndCustomDomainSSL(t *testing.T) {
 
 	if v := os.Getenv("PINGONE_DOMAIN_KEY_PEM"); v == "" {
 		t.Fatal("PINGONE_DOMAIN_KEY_PEM is missing and must be set")
+	}
+}
+
+func PreCheckEnvironmentAndTwilio(t *testing.T, skipTwilio bool) {
+
+	if skipTwilio {
+		t.Skipf("Twilio integration tests are skipped")
+	}
+
+	PreCheckEnvironment(t)
+	if v := os.Getenv("PINGONE_TWILIO_SID"); v == "" {
+		t.Fatal("PINGONE_TWILIO_SID is missing and must be set")
+	}
+
+	if v := os.Getenv("PINGONE_TWILIO_AUTH_TOKEN"); v == "" {
+		t.Fatal("PINGONE_TWILIO_AUTH_TOKEN is missing and must be set")
+	}
+
+	if v := os.Getenv("PINGONE_TWILIO_NUMBER"); v == "" {
+		t.Fatal("PINGONE_TWILIO_NUMBER is missing and must be set")
+	}
+}
+
+func PreCheckEnvironmentAndSyniverse(t *testing.T, skipSyniverse bool) {
+
+	if skipSyniverse {
+		t.Skipf("Syniverse integration tests are skipped")
+	}
+
+	PreCheckEnvironment(t)
+	if v := os.Getenv("PINGONE_SYNIVERSE_AUTH_TOKEN"); v == "" {
+		t.Fatal("PINGONE_SYNIVERSE_AUTH_TOKEN is missing and must be set")
+	}
+
+	if v := os.Getenv("PINGONE_SYNIVERSE_NUMBER"); v == "" {
+		t.Fatal("PINGONE_SYNIVERSE_NUMBER is missing and must be set")
 	}
 }
 
@@ -208,43 +331,8 @@ func TestClient(ctx context.Context) (*client.Client, error) {
 		ForceDelete:   false,
 	}
 
-	return config.APIClient(ctx)
+	return config.APIClient(ctx, getProviderTestingVersion())
 
-}
-
-func TestAccCheckEnvironmentDestroy(s *terraform.State) error {
-	var ctx = context.Background()
-
-	p1Client, err := TestClient(ctx)
-
-	if err != nil {
-		return err
-	}
-
-	apiClient := p1Client.API.ManagementAPIClient
-	ctx = context.WithValue(ctx, management.ContextServerVariables, map[string]string{
-		"suffix": p1Client.API.Region.URLSuffix,
-	})
-
-	for _, rs := range s.RootModule().Resources {
-		if rs.Type != "pingone_environment" {
-			continue
-		}
-
-		_, r, err := apiClient.EnvironmentsApi.ReadOneEnvironment(ctx, rs.Primary.ID).Execute()
-
-		if r.StatusCode == 404 {
-			continue
-		}
-
-		if err != nil {
-			return err
-		}
-
-		return fmt.Errorf("PingOne Environment Instance %s still exists", rs.Primary.ID)
-	}
-
-	return nil
 }
 
 func MinimalSandboxEnvironment(resourceName, licenseID string) string {
@@ -261,6 +349,15 @@ func MinimalSandboxEnvironment(resourceName, licenseID string) string {
 			service {
 				type = "MFA"
 			}
+			service {
+				type = "Risk"
+			}
+			service {
+				type = "Credentials"
+			}
+			service {
+				type = "Verify"
+			}
 		}`, resourceName, licenseID)
 }
 
@@ -275,5 +372,26 @@ func WorkforceSandboxEnvironment() string {
 	return `
 		data "pingone_environment" "workforce_test" {
 			name = "tf-testacc-static-workforce-test"
+		}`
+}
+
+func DomainVerifiedSandboxEnvironment() string {
+	return `
+		data "pingone_environment" "domainverified_test" {
+			name = "tf-testacc-static-domainverified-test"
+		}`
+}
+
+func AgreementSandboxEnvironment() string {
+	return `
+		data "pingone_environment" "agreement_test" {
+			name = "tf-testacc-static-agreements-test"
+		}`
+}
+
+func DaVinciFlowPolicySandboxEnvironment() string {
+	return `
+		data "pingone_environment" "davinci_test" {
+			name = "tf-testacc-static-davinci-test"
 		}`
 }

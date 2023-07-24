@@ -10,9 +10,8 @@ import (
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/terraform"
-	"github.com/patrickcping/pingone-go-sdk-v2/management"
-	"github.com/patrickcping/pingone-go-sdk-v2/mfa"
 	"github.com/pingidentity/terraform-provider-pingone/internal/acctest"
+	"github.com/pingidentity/terraform-provider-pingone/internal/verify"
 )
 
 func testAccCheckMFAPolicyDestroy(s *terraform.State) error {
@@ -25,21 +24,15 @@ func testAccCheckMFAPolicyDestroy(s *terraform.State) error {
 	}
 
 	apiClient := p1Client.API.MFAAPIClient
-	ctx = context.WithValue(ctx, mfa.ContextServerVariables, map[string]string{
-		"suffix": p1Client.API.Region.URLSuffix,
-	})
 
 	apiClientManagement := p1Client.API.ManagementAPIClient
-	ctxManagement := context.WithValue(ctx, management.ContextServerVariables, map[string]string{
-		"suffix": p1Client.API.Region.URLSuffix,
-	})
 
 	for _, rs := range s.RootModule().Resources {
 		if rs.Type != "pingone_mfa_policy" {
 			continue
 		}
 
-		_, rEnv, err := apiClientManagement.EnvironmentsApi.ReadOneEnvironment(ctxManagement, rs.Primary.Attributes["environment_id"]).Execute()
+		_, rEnv, err := apiClientManagement.EnvironmentsApi.ReadOneEnvironment(ctx, rs.Primary.Attributes["environment_id"]).Execute()
 
 		if err != nil {
 
@@ -89,16 +82,16 @@ func TestAccMFAPolicy_NewEnv(t *testing.T) {
 	licenseID := os.Getenv("PINGONE_LICENSE_ID")
 
 	resource.Test(t, resource.TestCase{
-		PreCheck:          func() { acctest.PreCheckEnvironment(t) },
-		ProviderFactories: acctest.ProviderFactories,
-		CheckDestroy:      testAccCheckMFAPolicyDestroy,
-		ErrorCheck:        acctest.ErrorCheck(t),
+		PreCheck:                 func() { acctest.PreCheckEnvironment(t) },
+		ProtoV6ProviderFactories: acctest.ProtoV6ProviderFactories,
+		CheckDestroy:             testAccCheckMFAPolicyDestroy,
+		ErrorCheck:               acctest.ErrorCheck(t),
 		Steps: []resource.TestStep{
 			{
 				Config: testAccMFAPolicyConfig_NewEnv(environmentName, licenseID, resourceName, name),
 				Check: resource.ComposeTestCheckFunc(
-					resource.TestMatchResourceAttr(resourceFullName, "id", regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)),
-					resource.TestMatchResourceAttr(resourceFullName, "environment_id", regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)),
+					resource.TestMatchResourceAttr(resourceFullName, "id", verify.P1ResourceIDRegexp),
+					resource.TestMatchResourceAttr(resourceFullName, "environment_id", verify.P1ResourceIDRegexp),
 					resource.TestCheckResourceAttr(resourceFullName, "name", name),
 				),
 			},
@@ -115,15 +108,16 @@ func TestAccMFAPolicy_SMS_Full(t *testing.T) {
 	name := resourceName
 
 	resource.Test(t, resource.TestCase{
-		PreCheck:          func() { acctest.PreCheckEnvironment(t) },
-		ProviderFactories: acctest.ProviderFactories,
-		CheckDestroy:      testAccCheckMFAPolicyDestroy,
-		ErrorCheck:        acctest.ErrorCheck(t),
+		PreCheck:                 func() { acctest.PreCheckEnvironment(t) },
+		ProtoV6ProviderFactories: acctest.ProtoV6ProviderFactories,
+		CheckDestroy:             testAccCheckMFAPolicyDestroy,
+		ErrorCheck:               acctest.ErrorCheck(t),
 		Steps: []resource.TestStep{
 			{
 				Config: testAccMFAPolicyConfig_FullSMS(resourceName, name),
 				Check: resource.ComposeTestCheckFunc(
 					resource.TestCheckResourceAttr(resourceFullName, "sms.0.enabled", "true"),
+					resource.TestCheckResourceAttr(resourceFullName, "sms.0.pairing_disabled", "true"),
 					resource.TestCheckResourceAttr(resourceFullName, "sms.0.otp_lifetime_duration", "75"),
 					resource.TestCheckResourceAttr(resourceFullName, "sms.0.otp_lifetime_timeunit", "SECONDS"),
 					resource.TestCheckResourceAttr(resourceFullName, "sms.0.otp_failure_count", "5"),
@@ -133,8 +127,10 @@ func TestAccMFAPolicy_SMS_Full(t *testing.T) {
 					resource.TestCheckResourceAttr(resourceFullName, "email.0.enabled", "false"),
 					resource.TestCheckResourceAttr(resourceFullName, "mobile.0.enabled", "false"),
 					resource.TestCheckResourceAttr(resourceFullName, "totp.0.enabled", "false"),
-					resource.TestCheckResourceAttr(resourceFullName, "security_key.0.enabled", "false"),
-					resource.TestCheckResourceAttr(resourceFullName, "platform.0.enabled", "false"),
+					resource.TestCheckResourceAttr(resourceFullName, "fido2.0.enabled", "false"),
+					resource.TestCheckResourceAttr(resourceFullName, "security_key.#", "0"),
+					resource.TestCheckResourceAttr(resourceFullName, "platform.#", "0"),
+					resource.TestCheckResourceAttr(resourceFullName, "new_device_notification", "SMS_THEN_EMAIL"),
 				),
 			},
 		},
@@ -150,15 +146,16 @@ func TestAccMFAPolicy_SMS_Minimal(t *testing.T) {
 	name := resourceName
 
 	resource.Test(t, resource.TestCase{
-		PreCheck:          func() { acctest.PreCheckEnvironment(t) },
-		ProviderFactories: acctest.ProviderFactories,
-		CheckDestroy:      testAccCheckMFAPolicyDestroy,
-		ErrorCheck:        acctest.ErrorCheck(t),
+		PreCheck:                 func() { acctest.PreCheckEnvironment(t) },
+		ProtoV6ProviderFactories: acctest.ProtoV6ProviderFactories,
+		CheckDestroy:             testAccCheckMFAPolicyDestroy,
+		ErrorCheck:               acctest.ErrorCheck(t),
 		Steps: []resource.TestStep{
 			{
 				Config: testAccMFAPolicyConfig_MinimalSMS(resourceName, name),
 				Check: resource.ComposeTestCheckFunc(
 					resource.TestCheckResourceAttr(resourceFullName, "sms.0.enabled", "true"),
+					resource.TestCheckResourceAttr(resourceFullName, "sms.0.pairing_disabled", "false"),
 					resource.TestCheckResourceAttr(resourceFullName, "sms.0.otp_lifetime_duration", "30"),
 					resource.TestCheckResourceAttr(resourceFullName, "sms.0.otp_lifetime_timeunit", "MINUTES"),
 					resource.TestCheckResourceAttr(resourceFullName, "sms.0.otp_failure_count", "3"),
@@ -168,8 +165,10 @@ func TestAccMFAPolicy_SMS_Minimal(t *testing.T) {
 					resource.TestCheckResourceAttr(resourceFullName, "email.0.enabled", "false"),
 					resource.TestCheckResourceAttr(resourceFullName, "mobile.0.enabled", "false"),
 					resource.TestCheckResourceAttr(resourceFullName, "totp.0.enabled", "false"),
-					resource.TestCheckResourceAttr(resourceFullName, "security_key.0.enabled", "false"),
-					resource.TestCheckResourceAttr(resourceFullName, "platform.0.enabled", "false"),
+					resource.TestCheckResourceAttr(resourceFullName, "fido2.0.enabled", "false"),
+					resource.TestCheckResourceAttr(resourceFullName, "security_key.#", "0"),
+					resource.TestCheckResourceAttr(resourceFullName, "platform.#", "0"),
+					resource.TestCheckResourceAttr(resourceFullName, "new_device_notification", "NONE"),
 				),
 			},
 		},
@@ -185,15 +184,16 @@ func TestAccMFAPolicy_SMS_Change(t *testing.T) {
 	name := resourceName
 
 	resource.Test(t, resource.TestCase{
-		PreCheck:          func() { acctest.PreCheckEnvironment(t) },
-		ProviderFactories: acctest.ProviderFactories,
-		CheckDestroy:      testAccCheckMFAPolicyDestroy,
-		ErrorCheck:        acctest.ErrorCheck(t),
+		PreCheck:                 func() { acctest.PreCheckEnvironment(t) },
+		ProtoV6ProviderFactories: acctest.ProtoV6ProviderFactories,
+		CheckDestroy:             testAccCheckMFAPolicyDestroy,
+		ErrorCheck:               acctest.ErrorCheck(t),
 		Steps: []resource.TestStep{
 			{
 				Config: testAccMFAPolicyConfig_FullSMS(resourceName, name),
 				Check: resource.ComposeTestCheckFunc(
 					resource.TestCheckResourceAttr(resourceFullName, "sms.0.enabled", "true"),
+					resource.TestCheckResourceAttr(resourceFullName, "sms.0.pairing_disabled", "true"),
 					resource.TestCheckResourceAttr(resourceFullName, "sms.0.otp_lifetime_duration", "75"),
 					resource.TestCheckResourceAttr(resourceFullName, "sms.0.otp_lifetime_timeunit", "SECONDS"),
 					resource.TestCheckResourceAttr(resourceFullName, "sms.0.otp_failure_count", "5"),
@@ -203,14 +203,17 @@ func TestAccMFAPolicy_SMS_Change(t *testing.T) {
 					resource.TestCheckResourceAttr(resourceFullName, "email.0.enabled", "false"),
 					resource.TestCheckResourceAttr(resourceFullName, "mobile.0.enabled", "false"),
 					resource.TestCheckResourceAttr(resourceFullName, "totp.0.enabled", "false"),
-					resource.TestCheckResourceAttr(resourceFullName, "security_key.0.enabled", "false"),
-					resource.TestCheckResourceAttr(resourceFullName, "platform.0.enabled", "false"),
+					resource.TestCheckResourceAttr(resourceFullName, "fido2.0.enabled", "false"),
+					resource.TestCheckResourceAttr(resourceFullName, "security_key.#", "0"),
+					resource.TestCheckResourceAttr(resourceFullName, "platform.#", "0"),
+					resource.TestCheckResourceAttr(resourceFullName, "new_device_notification", "SMS_THEN_EMAIL"),
 				),
 			},
 			{
 				Config: testAccMFAPolicyConfig_MinimalSMS(resourceName, name),
 				Check: resource.ComposeTestCheckFunc(
 					resource.TestCheckResourceAttr(resourceFullName, "sms.0.enabled", "true"),
+					resource.TestCheckResourceAttr(resourceFullName, "sms.0.pairing_disabled", "false"),
 					resource.TestCheckResourceAttr(resourceFullName, "sms.0.otp_lifetime_duration", "30"),
 					resource.TestCheckResourceAttr(resourceFullName, "sms.0.otp_lifetime_timeunit", "MINUTES"),
 					resource.TestCheckResourceAttr(resourceFullName, "sms.0.otp_failure_count", "3"),
@@ -220,14 +223,17 @@ func TestAccMFAPolicy_SMS_Change(t *testing.T) {
 					resource.TestCheckResourceAttr(resourceFullName, "email.0.enabled", "false"),
 					resource.TestCheckResourceAttr(resourceFullName, "mobile.0.enabled", "false"),
 					resource.TestCheckResourceAttr(resourceFullName, "totp.0.enabled", "false"),
-					resource.TestCheckResourceAttr(resourceFullName, "security_key.0.enabled", "false"),
-					resource.TestCheckResourceAttr(resourceFullName, "platform.0.enabled", "false"),
+					resource.TestCheckResourceAttr(resourceFullName, "fido2.0.enabled", "false"),
+					resource.TestCheckResourceAttr(resourceFullName, "security_key.#", "0"),
+					resource.TestCheckResourceAttr(resourceFullName, "platform.#", "0"),
+					resource.TestCheckResourceAttr(resourceFullName, "new_device_notification", "NONE"),
 				),
 			},
 			{
 				Config: testAccMFAPolicyConfig_FullSMS(resourceName, name),
 				Check: resource.ComposeTestCheckFunc(
 					resource.TestCheckResourceAttr(resourceFullName, "sms.0.enabled", "true"),
+					resource.TestCheckResourceAttr(resourceFullName, "sms.0.pairing_disabled", "true"),
 					resource.TestCheckResourceAttr(resourceFullName, "sms.0.otp_lifetime_duration", "75"),
 					resource.TestCheckResourceAttr(resourceFullName, "sms.0.otp_lifetime_timeunit", "SECONDS"),
 					resource.TestCheckResourceAttr(resourceFullName, "sms.0.otp_failure_count", "5"),
@@ -237,8 +243,10 @@ func TestAccMFAPolicy_SMS_Change(t *testing.T) {
 					resource.TestCheckResourceAttr(resourceFullName, "email.0.enabled", "false"),
 					resource.TestCheckResourceAttr(resourceFullName, "mobile.0.enabled", "false"),
 					resource.TestCheckResourceAttr(resourceFullName, "totp.0.enabled", "false"),
-					resource.TestCheckResourceAttr(resourceFullName, "security_key.0.enabled", "false"),
-					resource.TestCheckResourceAttr(resourceFullName, "platform.0.enabled", "false"),
+					resource.TestCheckResourceAttr(resourceFullName, "fido2.0.enabled", "false"),
+					resource.TestCheckResourceAttr(resourceFullName, "security_key.#", "0"),
+					resource.TestCheckResourceAttr(resourceFullName, "platform.#", "0"),
+					resource.TestCheckResourceAttr(resourceFullName, "new_device_notification", "SMS_THEN_EMAIL"),
 				),
 			},
 		},
@@ -254,16 +262,17 @@ func TestAccMFAPolicy_Voice_Full(t *testing.T) {
 	name := resourceName
 
 	resource.Test(t, resource.TestCase{
-		PreCheck:          func() { acctest.PreCheckEnvironment(t) },
-		ProviderFactories: acctest.ProviderFactories,
-		CheckDestroy:      testAccCheckMFAPolicyDestroy,
-		ErrorCheck:        acctest.ErrorCheck(t),
+		PreCheck:                 func() { acctest.PreCheckEnvironment(t) },
+		ProtoV6ProviderFactories: acctest.ProtoV6ProviderFactories,
+		CheckDestroy:             testAccCheckMFAPolicyDestroy,
+		ErrorCheck:               acctest.ErrorCheck(t),
 		Steps: []resource.TestStep{
 			{
 				Config: testAccMFAPolicyConfig_FullVoice(resourceName, name),
 				Check: resource.ComposeTestCheckFunc(
 					resource.TestCheckResourceAttr(resourceFullName, "sms.0.enabled", "false"),
 					resource.TestCheckResourceAttr(resourceFullName, "voice.0.enabled", "true"),
+					resource.TestCheckResourceAttr(resourceFullName, "voice.0.pairing_disabled", "true"),
 					resource.TestCheckResourceAttr(resourceFullName, "voice.0.otp_lifetime_duration", "75"),
 					resource.TestCheckResourceAttr(resourceFullName, "voice.0.otp_lifetime_timeunit", "SECONDS"),
 					resource.TestCheckResourceAttr(resourceFullName, "voice.0.otp_failure_count", "5"),
@@ -272,8 +281,10 @@ func TestAccMFAPolicy_Voice_Full(t *testing.T) {
 					resource.TestCheckResourceAttr(resourceFullName, "email.0.enabled", "false"),
 					resource.TestCheckResourceAttr(resourceFullName, "mobile.0.enabled", "false"),
 					resource.TestCheckResourceAttr(resourceFullName, "totp.0.enabled", "false"),
-					resource.TestCheckResourceAttr(resourceFullName, "security_key.0.enabled", "false"),
-					resource.TestCheckResourceAttr(resourceFullName, "platform.0.enabled", "false"),
+					resource.TestCheckResourceAttr(resourceFullName, "fido2.0.enabled", "false"),
+					resource.TestCheckResourceAttr(resourceFullName, "security_key.#", "0"),
+					resource.TestCheckResourceAttr(resourceFullName, "platform.#", "0"),
+					resource.TestCheckResourceAttr(resourceFullName, "new_device_notification", "SMS_THEN_EMAIL"),
 				),
 			},
 		},
@@ -289,16 +300,17 @@ func TestAccMFAPolicy_Voice_Minimal(t *testing.T) {
 	name := resourceName
 
 	resource.Test(t, resource.TestCase{
-		PreCheck:          func() { acctest.PreCheckEnvironment(t) },
-		ProviderFactories: acctest.ProviderFactories,
-		CheckDestroy:      testAccCheckMFAPolicyDestroy,
-		ErrorCheck:        acctest.ErrorCheck(t),
+		PreCheck:                 func() { acctest.PreCheckEnvironment(t) },
+		ProtoV6ProviderFactories: acctest.ProtoV6ProviderFactories,
+		CheckDestroy:             testAccCheckMFAPolicyDestroy,
+		ErrorCheck:               acctest.ErrorCheck(t),
 		Steps: []resource.TestStep{
 			{
 				Config: testAccMFAPolicyConfig_MinimalVoice(resourceName, name),
 				Check: resource.ComposeTestCheckFunc(
 					resource.TestCheckResourceAttr(resourceFullName, "sms.0.enabled", "false"),
 					resource.TestCheckResourceAttr(resourceFullName, "voice.0.enabled", "true"),
+					resource.TestCheckResourceAttr(resourceFullName, "voice.0.pairing_disabled", "false"),
 					resource.TestCheckResourceAttr(resourceFullName, "voice.0.otp_lifetime_duration", "30"),
 					resource.TestCheckResourceAttr(resourceFullName, "voice.0.otp_lifetime_timeunit", "MINUTES"),
 					resource.TestCheckResourceAttr(resourceFullName, "voice.0.otp_failure_count", "3"),
@@ -307,8 +319,10 @@ func TestAccMFAPolicy_Voice_Minimal(t *testing.T) {
 					resource.TestCheckResourceAttr(resourceFullName, "email.0.enabled", "false"),
 					resource.TestCheckResourceAttr(resourceFullName, "mobile.0.enabled", "false"),
 					resource.TestCheckResourceAttr(resourceFullName, "totp.0.enabled", "false"),
-					resource.TestCheckResourceAttr(resourceFullName, "security_key.0.enabled", "false"),
-					resource.TestCheckResourceAttr(resourceFullName, "platform.0.enabled", "false"),
+					resource.TestCheckResourceAttr(resourceFullName, "fido2.0.enabled", "false"),
+					resource.TestCheckResourceAttr(resourceFullName, "security_key.#", "0"),
+					resource.TestCheckResourceAttr(resourceFullName, "platform.#", "0"),
+					resource.TestCheckResourceAttr(resourceFullName, "new_device_notification", "NONE"),
 				),
 			},
 		},
@@ -324,16 +338,17 @@ func TestAccMFAPolicy_Voice_Change(t *testing.T) {
 	name := resourceName
 
 	resource.Test(t, resource.TestCase{
-		PreCheck:          func() { acctest.PreCheckEnvironment(t) },
-		ProviderFactories: acctest.ProviderFactories,
-		CheckDestroy:      testAccCheckMFAPolicyDestroy,
-		ErrorCheck:        acctest.ErrorCheck(t),
+		PreCheck:                 func() { acctest.PreCheckEnvironment(t) },
+		ProtoV6ProviderFactories: acctest.ProtoV6ProviderFactories,
+		CheckDestroy:             testAccCheckMFAPolicyDestroy,
+		ErrorCheck:               acctest.ErrorCheck(t),
 		Steps: []resource.TestStep{
 			{
 				Config: testAccMFAPolicyConfig_FullVoice(resourceName, name),
 				Check: resource.ComposeTestCheckFunc(
 					resource.TestCheckResourceAttr(resourceFullName, "sms.0.enabled", "false"),
 					resource.TestCheckResourceAttr(resourceFullName, "voice.0.enabled", "true"),
+					resource.TestCheckResourceAttr(resourceFullName, "voice.0.pairing_disabled", "true"),
 					resource.TestCheckResourceAttr(resourceFullName, "voice.0.otp_lifetime_duration", "75"),
 					resource.TestCheckResourceAttr(resourceFullName, "voice.0.otp_lifetime_timeunit", "SECONDS"),
 					resource.TestCheckResourceAttr(resourceFullName, "voice.0.otp_failure_count", "5"),
@@ -342,8 +357,10 @@ func TestAccMFAPolicy_Voice_Change(t *testing.T) {
 					resource.TestCheckResourceAttr(resourceFullName, "email.0.enabled", "false"),
 					resource.TestCheckResourceAttr(resourceFullName, "mobile.0.enabled", "false"),
 					resource.TestCheckResourceAttr(resourceFullName, "totp.0.enabled", "false"),
-					resource.TestCheckResourceAttr(resourceFullName, "security_key.0.enabled", "false"),
-					resource.TestCheckResourceAttr(resourceFullName, "platform.0.enabled", "false"),
+					resource.TestCheckResourceAttr(resourceFullName, "fido2.0.enabled", "false"),
+					resource.TestCheckResourceAttr(resourceFullName, "security_key.#", "0"),
+					resource.TestCheckResourceAttr(resourceFullName, "platform.#", "0"),
+					resource.TestCheckResourceAttr(resourceFullName, "new_device_notification", "SMS_THEN_EMAIL"),
 				),
 			},
 			{
@@ -351,6 +368,7 @@ func TestAccMFAPolicy_Voice_Change(t *testing.T) {
 				Check: resource.ComposeTestCheckFunc(
 					resource.TestCheckResourceAttr(resourceFullName, "sms.0.enabled", "false"),
 					resource.TestCheckResourceAttr(resourceFullName, "voice.0.enabled", "true"),
+					resource.TestCheckResourceAttr(resourceFullName, "voice.0.pairing_disabled", "false"),
 					resource.TestCheckResourceAttr(resourceFullName, "voice.0.otp_lifetime_duration", "30"),
 					resource.TestCheckResourceAttr(resourceFullName, "voice.0.otp_lifetime_timeunit", "MINUTES"),
 					resource.TestCheckResourceAttr(resourceFullName, "voice.0.otp_failure_count", "3"),
@@ -359,8 +377,10 @@ func TestAccMFAPolicy_Voice_Change(t *testing.T) {
 					resource.TestCheckResourceAttr(resourceFullName, "email.0.enabled", "false"),
 					resource.TestCheckResourceAttr(resourceFullName, "mobile.0.enabled", "false"),
 					resource.TestCheckResourceAttr(resourceFullName, "totp.0.enabled", "false"),
-					resource.TestCheckResourceAttr(resourceFullName, "security_key.0.enabled", "false"),
-					resource.TestCheckResourceAttr(resourceFullName, "platform.0.enabled", "false"),
+					resource.TestCheckResourceAttr(resourceFullName, "fido2.0.enabled", "false"),
+					resource.TestCheckResourceAttr(resourceFullName, "security_key.#", "0"),
+					resource.TestCheckResourceAttr(resourceFullName, "platform.#", "0"),
+					resource.TestCheckResourceAttr(resourceFullName, "new_device_notification", "NONE"),
 				),
 			},
 			{
@@ -368,6 +388,7 @@ func TestAccMFAPolicy_Voice_Change(t *testing.T) {
 				Check: resource.ComposeTestCheckFunc(
 					resource.TestCheckResourceAttr(resourceFullName, "sms.0.enabled", "false"),
 					resource.TestCheckResourceAttr(resourceFullName, "voice.0.enabled", "true"),
+					resource.TestCheckResourceAttr(resourceFullName, "voice.0.pairing_disabled", "true"),
 					resource.TestCheckResourceAttr(resourceFullName, "voice.0.otp_lifetime_duration", "75"),
 					resource.TestCheckResourceAttr(resourceFullName, "voice.0.otp_lifetime_timeunit", "SECONDS"),
 					resource.TestCheckResourceAttr(resourceFullName, "voice.0.otp_failure_count", "5"),
@@ -376,8 +397,10 @@ func TestAccMFAPolicy_Voice_Change(t *testing.T) {
 					resource.TestCheckResourceAttr(resourceFullName, "email.0.enabled", "false"),
 					resource.TestCheckResourceAttr(resourceFullName, "mobile.0.enabled", "false"),
 					resource.TestCheckResourceAttr(resourceFullName, "totp.0.enabled", "false"),
-					resource.TestCheckResourceAttr(resourceFullName, "security_key.0.enabled", "false"),
-					resource.TestCheckResourceAttr(resourceFullName, "platform.0.enabled", "false"),
+					resource.TestCheckResourceAttr(resourceFullName, "fido2.0.enabled", "false"),
+					resource.TestCheckResourceAttr(resourceFullName, "security_key.#", "0"),
+					resource.TestCheckResourceAttr(resourceFullName, "platform.#", "0"),
+					resource.TestCheckResourceAttr(resourceFullName, "new_device_notification", "SMS_THEN_EMAIL"),
 				),
 			},
 		},
@@ -393,10 +416,10 @@ func TestAccMFAPolicy_Email_Full(t *testing.T) {
 	name := resourceName
 
 	resource.Test(t, resource.TestCase{
-		PreCheck:          func() { acctest.PreCheckEnvironment(t) },
-		ProviderFactories: acctest.ProviderFactories,
-		CheckDestroy:      testAccCheckMFAPolicyDestroy,
-		ErrorCheck:        acctest.ErrorCheck(t),
+		PreCheck:                 func() { acctest.PreCheckEnvironment(t) },
+		ProtoV6ProviderFactories: acctest.ProtoV6ProviderFactories,
+		CheckDestroy:             testAccCheckMFAPolicyDestroy,
+		ErrorCheck:               acctest.ErrorCheck(t),
 		Steps: []resource.TestStep{
 			{
 				Config: testAccMFAPolicyConfig_FullEmail(resourceName, name),
@@ -404,6 +427,7 @@ func TestAccMFAPolicy_Email_Full(t *testing.T) {
 					resource.TestCheckResourceAttr(resourceFullName, "sms.0.enabled", "false"),
 					resource.TestCheckResourceAttr(resourceFullName, "voice.0.enabled", "false"),
 					resource.TestCheckResourceAttr(resourceFullName, "email.0.enabled", "true"),
+					resource.TestCheckResourceAttr(resourceFullName, "email.0.pairing_disabled", "true"),
 					resource.TestCheckResourceAttr(resourceFullName, "email.0.otp_lifetime_duration", "75"),
 					resource.TestCheckResourceAttr(resourceFullName, "email.0.otp_lifetime_timeunit", "SECONDS"),
 					resource.TestCheckResourceAttr(resourceFullName, "email.0.otp_failure_count", "5"),
@@ -411,8 +435,10 @@ func TestAccMFAPolicy_Email_Full(t *testing.T) {
 					resource.TestCheckResourceAttr(resourceFullName, "email.0.otp_failure_cooldown_timeunit", "SECONDS"),
 					resource.TestCheckResourceAttr(resourceFullName, "mobile.0.enabled", "false"),
 					resource.TestCheckResourceAttr(resourceFullName, "totp.0.enabled", "false"),
-					resource.TestCheckResourceAttr(resourceFullName, "security_key.0.enabled", "false"),
-					resource.TestCheckResourceAttr(resourceFullName, "platform.0.enabled", "false"),
+					resource.TestCheckResourceAttr(resourceFullName, "fido2.0.enabled", "false"),
+					resource.TestCheckResourceAttr(resourceFullName, "security_key.#", "0"),
+					resource.TestCheckResourceAttr(resourceFullName, "platform.#", "0"),
+					resource.TestCheckResourceAttr(resourceFullName, "new_device_notification", "SMS_THEN_EMAIL"),
 				),
 			},
 		},
@@ -428,10 +454,10 @@ func TestAccMFAPolicy_Email_Minimal(t *testing.T) {
 	name := resourceName
 
 	resource.Test(t, resource.TestCase{
-		PreCheck:          func() { acctest.PreCheckEnvironment(t) },
-		ProviderFactories: acctest.ProviderFactories,
-		CheckDestroy:      testAccCheckMFAPolicyDestroy,
-		ErrorCheck:        acctest.ErrorCheck(t),
+		PreCheck:                 func() { acctest.PreCheckEnvironment(t) },
+		ProtoV6ProviderFactories: acctest.ProtoV6ProviderFactories,
+		CheckDestroy:             testAccCheckMFAPolicyDestroy,
+		ErrorCheck:               acctest.ErrorCheck(t),
 		Steps: []resource.TestStep{
 			{
 				Config: testAccMFAPolicyConfig_MinimalEmail(resourceName, name),
@@ -439,6 +465,7 @@ func TestAccMFAPolicy_Email_Minimal(t *testing.T) {
 					resource.TestCheckResourceAttr(resourceFullName, "sms.0.enabled", "false"),
 					resource.TestCheckResourceAttr(resourceFullName, "voice.0.enabled", "false"),
 					resource.TestCheckResourceAttr(resourceFullName, "email.0.enabled", "true"),
+					resource.TestCheckResourceAttr(resourceFullName, "email.0.pairing_disabled", "false"),
 					resource.TestCheckResourceAttr(resourceFullName, "email.0.otp_lifetime_duration", "30"),
 					resource.TestCheckResourceAttr(resourceFullName, "email.0.otp_lifetime_timeunit", "MINUTES"),
 					resource.TestCheckResourceAttr(resourceFullName, "email.0.otp_failure_count", "3"),
@@ -446,8 +473,10 @@ func TestAccMFAPolicy_Email_Minimal(t *testing.T) {
 					resource.TestCheckResourceAttr(resourceFullName, "email.0.otp_failure_cooldown_timeunit", "MINUTES"),
 					resource.TestCheckResourceAttr(resourceFullName, "mobile.0.enabled", "false"),
 					resource.TestCheckResourceAttr(resourceFullName, "totp.0.enabled", "false"),
-					resource.TestCheckResourceAttr(resourceFullName, "security_key.0.enabled", "false"),
-					resource.TestCheckResourceAttr(resourceFullName, "platform.0.enabled", "false"),
+					resource.TestCheckResourceAttr(resourceFullName, "fido2.0.enabled", "false"),
+					resource.TestCheckResourceAttr(resourceFullName, "security_key.#", "0"),
+					resource.TestCheckResourceAttr(resourceFullName, "platform.#", "0"),
+					resource.TestCheckResourceAttr(resourceFullName, "new_device_notification", "NONE"),
 				),
 			},
 		},
@@ -463,10 +492,10 @@ func TestAccMFAPolicy_Email_Change(t *testing.T) {
 	name := resourceName
 
 	resource.Test(t, resource.TestCase{
-		PreCheck:          func() { acctest.PreCheckEnvironment(t) },
-		ProviderFactories: acctest.ProviderFactories,
-		CheckDestroy:      testAccCheckMFAPolicyDestroy,
-		ErrorCheck:        acctest.ErrorCheck(t),
+		PreCheck:                 func() { acctest.PreCheckEnvironment(t) },
+		ProtoV6ProviderFactories: acctest.ProtoV6ProviderFactories,
+		CheckDestroy:             testAccCheckMFAPolicyDestroy,
+		ErrorCheck:               acctest.ErrorCheck(t),
 		Steps: []resource.TestStep{
 			{
 				Config: testAccMFAPolicyConfig_FullEmail(resourceName, name),
@@ -474,6 +503,7 @@ func TestAccMFAPolicy_Email_Change(t *testing.T) {
 					resource.TestCheckResourceAttr(resourceFullName, "sms.0.enabled", "false"),
 					resource.TestCheckResourceAttr(resourceFullName, "voice.0.enabled", "false"),
 					resource.TestCheckResourceAttr(resourceFullName, "email.0.enabled", "true"),
+					resource.TestCheckResourceAttr(resourceFullName, "email.0.pairing_disabled", "true"),
 					resource.TestCheckResourceAttr(resourceFullName, "email.0.otp_lifetime_duration", "75"),
 					resource.TestCheckResourceAttr(resourceFullName, "email.0.otp_lifetime_timeunit", "SECONDS"),
 					resource.TestCheckResourceAttr(resourceFullName, "email.0.otp_failure_count", "5"),
@@ -481,8 +511,10 @@ func TestAccMFAPolicy_Email_Change(t *testing.T) {
 					resource.TestCheckResourceAttr(resourceFullName, "email.0.otp_failure_cooldown_timeunit", "SECONDS"),
 					resource.TestCheckResourceAttr(resourceFullName, "mobile.0.enabled", "false"),
 					resource.TestCheckResourceAttr(resourceFullName, "totp.0.enabled", "false"),
-					resource.TestCheckResourceAttr(resourceFullName, "security_key.0.enabled", "false"),
-					resource.TestCheckResourceAttr(resourceFullName, "platform.0.enabled", "false"),
+					resource.TestCheckResourceAttr(resourceFullName, "fido2.0.enabled", "false"),
+					resource.TestCheckResourceAttr(resourceFullName, "security_key.#", "0"),
+					resource.TestCheckResourceAttr(resourceFullName, "platform.#", "0"),
+					resource.TestCheckResourceAttr(resourceFullName, "new_device_notification", "SMS_THEN_EMAIL"),
 				),
 			},
 			{
@@ -491,6 +523,7 @@ func TestAccMFAPolicy_Email_Change(t *testing.T) {
 					resource.TestCheckResourceAttr(resourceFullName, "sms.0.enabled", "false"),
 					resource.TestCheckResourceAttr(resourceFullName, "voice.0.enabled", "false"),
 					resource.TestCheckResourceAttr(resourceFullName, "email.0.enabled", "true"),
+					resource.TestCheckResourceAttr(resourceFullName, "email.0.pairing_disabled", "false"),
 					resource.TestCheckResourceAttr(resourceFullName, "email.0.otp_lifetime_duration", "30"),
 					resource.TestCheckResourceAttr(resourceFullName, "email.0.otp_lifetime_timeunit", "MINUTES"),
 					resource.TestCheckResourceAttr(resourceFullName, "email.0.otp_failure_count", "3"),
@@ -498,8 +531,10 @@ func TestAccMFAPolicy_Email_Change(t *testing.T) {
 					resource.TestCheckResourceAttr(resourceFullName, "email.0.otp_failure_cooldown_timeunit", "MINUTES"),
 					resource.TestCheckResourceAttr(resourceFullName, "mobile.0.enabled", "false"),
 					resource.TestCheckResourceAttr(resourceFullName, "totp.0.enabled", "false"),
-					resource.TestCheckResourceAttr(resourceFullName, "security_key.0.enabled", "false"),
-					resource.TestCheckResourceAttr(resourceFullName, "platform.0.enabled", "false"),
+					resource.TestCheckResourceAttr(resourceFullName, "fido2.0.enabled", "false"),
+					resource.TestCheckResourceAttr(resourceFullName, "security_key.#", "0"),
+					resource.TestCheckResourceAttr(resourceFullName, "platform.#", "0"),
+					resource.TestCheckResourceAttr(resourceFullName, "new_device_notification", "NONE"),
 				),
 			},
 			{
@@ -508,6 +543,7 @@ func TestAccMFAPolicy_Email_Change(t *testing.T) {
 					resource.TestCheckResourceAttr(resourceFullName, "sms.0.enabled", "false"),
 					resource.TestCheckResourceAttr(resourceFullName, "voice.0.enabled", "false"),
 					resource.TestCheckResourceAttr(resourceFullName, "email.0.enabled", "true"),
+					resource.TestCheckResourceAttr(resourceFullName, "email.0.pairing_disabled", "true"),
 					resource.TestCheckResourceAttr(resourceFullName, "email.0.otp_lifetime_duration", "75"),
 					resource.TestCheckResourceAttr(resourceFullName, "email.0.otp_lifetime_timeunit", "SECONDS"),
 					resource.TestCheckResourceAttr(resourceFullName, "email.0.otp_failure_count", "5"),
@@ -515,8 +551,10 @@ func TestAccMFAPolicy_Email_Change(t *testing.T) {
 					resource.TestCheckResourceAttr(resourceFullName, "email.0.otp_failure_cooldown_timeunit", "SECONDS"),
 					resource.TestCheckResourceAttr(resourceFullName, "mobile.0.enabled", "false"),
 					resource.TestCheckResourceAttr(resourceFullName, "totp.0.enabled", "false"),
-					resource.TestCheckResourceAttr(resourceFullName, "security_key.0.enabled", "false"),
-					resource.TestCheckResourceAttr(resourceFullName, "platform.0.enabled", "false"),
+					resource.TestCheckResourceAttr(resourceFullName, "fido2.0.enabled", "false"),
+					resource.TestCheckResourceAttr(resourceFullName, "security_key.#", "0"),
+					resource.TestCheckResourceAttr(resourceFullName, "platform.#", "0"),
+					resource.TestCheckResourceAttr(resourceFullName, "new_device_notification", "SMS_THEN_EMAIL"),
 				),
 			},
 		},
@@ -531,14 +569,16 @@ func TestAccMFAPolicy_Mobile_Full(t *testing.T) {
 
 	name := resourceName
 
+	firebaseCredentials := os.Getenv("PINGONE_GOOGLE_FIREBASE_CREDENTIALS")
+
 	resource.Test(t, resource.TestCase{
-		PreCheck:          func() { acctest.PreCheckEnvironment(t) },
-		ProviderFactories: acctest.ProviderFactories,
-		CheckDestroy:      testAccCheckMFAPolicyDestroy,
-		ErrorCheck:        acctest.ErrorCheck(t),
+		PreCheck:                 func() { acctest.PreCheckEnvironmentAndGoogleFirebaseCredentials(t) },
+		ProtoV6ProviderFactories: acctest.ProtoV6ProviderFactories,
+		CheckDestroy:             testAccCheckMFAPolicyDestroy,
+		ErrorCheck:               acctest.ErrorCheck(t),
 		Steps: []resource.TestStep{
 			{
-				Config: testAccMFAPolicyConfig_FullMobile(resourceName, name),
+				Config: testAccMFAPolicyConfig_FullMobile(resourceName, name, firebaseCredentials),
 				Check: resource.ComposeTestCheckFunc(
 					resource.TestCheckResourceAttr(resourceFullName, "sms.0.enabled", "false"),
 					resource.TestCheckResourceAttr(resourceFullName, "voice.0.enabled", "false"),
@@ -549,39 +589,65 @@ func TestAccMFAPolicy_Mobile_Full(t *testing.T) {
 					resource.TestCheckResourceAttr(resourceFullName, "mobile.0.otp_failure_cooldown_timeunit", "SECONDS"),
 					resource.TestCheckResourceAttr(resourceFullName, "mobile.0.application.#", "3"),
 					resource.TestMatchTypeSetElemNestedAttrs(resourceFullName, "mobile.0.application.*", map[string]*regexp.Regexp{
-						"id":                           regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`),
-						"push_enabled":                 regexp.MustCompile(`^true$`),
-						"push_timeout_duration":        regexp.MustCompile(`^100$`),
-						"push_timeout_timeunit":        regexp.MustCompile(`^SECONDS$`),
-						"otp_enabled":                  regexp.MustCompile(`^true$`),
-						"device_authorization_enabled": regexp.MustCompile(`^true$`),
+						"id":                                      verify.P1ResourceIDRegexp,
+						"pairing_disabled":                        regexp.MustCompile(`^true$`),
+						"push_enabled":                            regexp.MustCompile(`^true$`),
+						"push_timeout_duration":                   regexp.MustCompile(`^100$`),
+						"push_timeout_timeunit":                   regexp.MustCompile(`^SECONDS$`),
+						"pairing_key_lifetime_duration":           regexp.MustCompile(`^3$`),
+						"pairing_key_lifetime_timeunit":           regexp.MustCompile(`^HOURS$`),
+						"push_limit_count":                        regexp.MustCompile(`^10$`),
+						"push_limit_lock_duration":                regexp.MustCompile(`^260$`),
+						"push_limit_lock_duration_timeunit":       regexp.MustCompile(`^SECONDS$`),
+						"push_limit_time_period_duration":         regexp.MustCompile(`^300$`),
+						"push_limit_time_period_timeunit":         regexp.MustCompile(`^SECONDS$`),
+						"otp_enabled":                             regexp.MustCompile(`^true$`),
+						"device_authorization_enabled":            regexp.MustCompile(`^true$`),
 						"device_authorization_extra_verification": regexp.MustCompile(`^restrictive$`),
 						"auto_enrollment_enabled":                 regexp.MustCompile(`^true$`),
 						"integrity_detection":                     regexp.MustCompile(`^$`),
 					}),
 					resource.TestMatchTypeSetElemNestedAttrs(resourceFullName, "mobile.0.application.*", map[string]*regexp.Regexp{
-						"id":                    regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`),
-						"push_enabled":          regexp.MustCompile(`^false$`),
-						"push_timeout_duration": regexp.MustCompile(`^40$`),
-						"push_timeout_timeunit": regexp.MustCompile(`^SECONDS$`),
-						"otp_enabled":           regexp.MustCompile(`^true$`),
+						"id":                                      verify.P1ResourceIDRegexp,
+						"pairing_disabled":                        regexp.MustCompile(`^false$`),
+						"push_enabled":                            regexp.MustCompile(`^false$`),
+						"push_timeout_duration":                   regexp.MustCompile(`^40$`),
+						"push_timeout_timeunit":                   regexp.MustCompile(`^SECONDS$`),
+						"pairing_key_lifetime_duration":           regexp.MustCompile(`^10$`),
+						"pairing_key_lifetime_timeunit":           regexp.MustCompile(`^MINUTES$`),
+						"push_limit_count":                        regexp.MustCompile(`^5$`),
+						"push_limit_lock_duration":                regexp.MustCompile(`^30$`),
+						"push_limit_lock_duration_timeunit":       regexp.MustCompile(`^MINUTES$`),
+						"push_limit_time_period_duration":         regexp.MustCompile(`^10$`),
+						"push_limit_time_period_timeunit":         regexp.MustCompile(`^MINUTES$`),
+						"otp_enabled":                             regexp.MustCompile(`^true$`),
 						"device_authorization_extra_verification": regexp.MustCompile(`^$`),
 						"integrity_detection":                     regexp.MustCompile(`^permissive$`),
 					}),
 					resource.TestMatchTypeSetElemNestedAttrs(resourceFullName, "mobile.0.application.*", map[string]*regexp.Regexp{
-						"id":                           regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`),
-						"push_enabled":                 regexp.MustCompile(`^true$`),
-						"push_timeout_duration":        regexp.MustCompile(`^40$`),
-						"push_timeout_timeunit":        regexp.MustCompile(`^SECONDS$`),
-						"otp_enabled":                  regexp.MustCompile(`^true$`),
-						"device_authorization_enabled": regexp.MustCompile(`^false$`),
+						"id":                                      verify.P1ResourceIDRegexp,
+						"pairing_disabled":                        regexp.MustCompile(`^false$`),
+						"push_enabled":                            regexp.MustCompile(`^true$`),
+						"push_timeout_duration":                   regexp.MustCompile(`^40$`),
+						"push_timeout_timeunit":                   regexp.MustCompile(`^SECONDS$`),
+						"pairing_key_lifetime_duration":           regexp.MustCompile(`^55$`),
+						"pairing_key_lifetime_timeunit":           regexp.MustCompile(`^MINUTES$`),
+						"push_limit_count":                        regexp.MustCompile(`^5$`),
+						"push_limit_lock_duration":                regexp.MustCompile(`^25$`),
+						"push_limit_lock_duration_timeunit":       regexp.MustCompile(`^MINUTES$`),
+						"push_limit_time_period_duration":         regexp.MustCompile(`^5$`),
+						"push_limit_time_period_timeunit":         regexp.MustCompile(`^MINUTES$`),
+						"otp_enabled":                             regexp.MustCompile(`^true$`),
+						"device_authorization_enabled":            regexp.MustCompile(`^false$`),
 						"device_authorization_extra_verification": regexp.MustCompile(`^$`),
 						"auto_enrollment_enabled":                 regexp.MustCompile(`^true$`),
 						"integrity_detection":                     regexp.MustCompile(`^permissive$`),
 					}),
 					resource.TestCheckResourceAttr(resourceFullName, "totp.0.enabled", "false"),
-					resource.TestCheckResourceAttr(resourceFullName, "security_key.0.enabled", "false"),
-					resource.TestCheckResourceAttr(resourceFullName, "platform.0.enabled", "false"),
+					resource.TestCheckResourceAttr(resourceFullName, "fido2.0.enabled", "false"),
+					resource.TestCheckResourceAttr(resourceFullName, "security_key.#", "0"),
+					resource.TestCheckResourceAttr(resourceFullName, "platform.#", "0"),
+					resource.TestCheckResourceAttr(resourceFullName, "new_device_notification", "SMS_THEN_EMAIL"),
 				),
 			},
 		},
@@ -596,10 +662,10 @@ func TestAccMFAPolicy_Mobile_IntegrityDetectionErrors(t *testing.T) {
 	name := resourceName
 
 	resource.Test(t, resource.TestCase{
-		PreCheck:          func() { acctest.PreCheckEnvironment(t) },
-		ProviderFactories: acctest.ProviderFactories,
-		CheckDestroy:      testAccCheckMFAPolicyDestroy,
-		ErrorCheck:        acctest.ErrorCheck(t),
+		PreCheck:                 func() { acctest.PreCheckEnvironment(t) },
+		ProtoV6ProviderFactories: acctest.ProtoV6ProviderFactories,
+		CheckDestroy:             testAccCheckMFAPolicyDestroy,
+		ErrorCheck:               acctest.ErrorCheck(t),
 		Steps: []resource.TestStep{
 			{
 				Config: testAccMFAPolicyConfig_MobileIntegrityDetectionError_1(resourceName, name),
@@ -623,30 +689,26 @@ func TestAccMFAPolicy_Mobile_BadApplicationErrors(t *testing.T) {
 	name := resourceName
 
 	resource.Test(t, resource.TestCase{
-		PreCheck:          func() { acctest.PreCheckEnvironment(t) },
-		ProviderFactories: acctest.ProviderFactories,
-		CheckDestroy:      testAccCheckMFAPolicyDestroy,
-		ErrorCheck:        acctest.ErrorCheck(t),
+		PreCheck:                 func() { acctest.PreCheckEnvironment(t) },
+		ProtoV6ProviderFactories: acctest.ProtoV6ProviderFactories,
+		CheckDestroy:             testAccCheckMFAPolicyDestroy,
+		ErrorCheck:               acctest.ErrorCheck(t),
 		Steps: []resource.TestStep{
 			{
-				Config: testAccMFAPolicyConfig_MobileBadApplicationError_1(resourceName, name),
-				// Appliation referenced in `mobile.application.id` does not exist
-				ExpectError: regexp.MustCompile("Appliation referenced in `mobile.application.id` does not exist"),
+				Config:      testAccMFAPolicyConfig_MobileBadApplicationError_1(resourceName, name),
+				ExpectError: regexp.MustCompile("Application referenced in `mobile.application.id` does not exist"),
 			},
 			{
-				Config: testAccMFAPolicyConfig_MobileBadApplicationError_2(resourceName, name),
-				// Appliation referenced in `mobile.application.id` is not of type OIDC
-				ExpectError: regexp.MustCompile("Appliation referenced in `mobile.application.id` is not of type OIDC"),
+				Config:      testAccMFAPolicyConfig_MobileBadApplicationError_2(resourceName, name),
+				ExpectError: regexp.MustCompile("Application referenced in `mobile.application.id` is not of type OIDC"),
 			},
 			{
-				Config: testAccMFAPolicyConfig_MobileBadApplicationError_3(resourceName, name),
-				// Appliation referenced in `mobile.application.id` is OIDC, but is not the required `Native` OIDC application type
-				ExpectError: regexp.MustCompile("Appliation referenced in `mobile.application.id` is OIDC, but is not the required `Native` OIDC application type"),
+				Config:      testAccMFAPolicyConfig_MobileBadApplicationError_3(resourceName, name),
+				ExpectError: regexp.MustCompile("Application referenced in `mobile.application.id` is OIDC, but is not the required `Native` OIDC application type"),
 			},
 			{
-				Config: testAccMFAPolicyConfig_MobileBadApplicationError_4(resourceName, name),
-				// Appliation referenced in `mobile.application.id` does not contain mobile application configuration
-				ExpectError: regexp.MustCompile("Appliation referenced in `mobile.application.id` does not contain mobile application configuration"),
+				Config:      testAccMFAPolicyConfig_MobileBadApplicationError_4(resourceName, name),
+				ExpectError: regexp.MustCompile("Application referenced in `mobile.application.id` does not contain mobile application configuration"),
 			},
 		},
 	})
@@ -661,10 +723,10 @@ func TestAccMFAPolicy_Mobile_Minimal(t *testing.T) {
 	name := resourceName
 
 	resource.Test(t, resource.TestCase{
-		PreCheck:          func() { acctest.PreCheckEnvironment(t) },
-		ProviderFactories: acctest.ProviderFactories,
-		CheckDestroy:      testAccCheckMFAPolicyDestroy,
-		ErrorCheck:        acctest.ErrorCheck(t),
+		PreCheck:                 func() { acctest.PreCheckEnvironment(t) },
+		ProtoV6ProviderFactories: acctest.ProtoV6ProviderFactories,
+		CheckDestroy:             testAccCheckMFAPolicyDestroy,
+		ErrorCheck:               acctest.ErrorCheck(t),
 		Steps: []resource.TestStep{
 			{
 				Config: testAccMFAPolicyConfig_MinimalMobile(resourceName, name),
@@ -677,8 +739,10 @@ func TestAccMFAPolicy_Mobile_Minimal(t *testing.T) {
 					resource.TestCheckResourceAttr(resourceFullName, "mobile.0.otp_failure_cooldown_duration", "2"),
 					resource.TestCheckResourceAttr(resourceFullName, "mobile.0.otp_failure_cooldown_timeunit", "MINUTES"),
 					resource.TestCheckResourceAttr(resourceFullName, "totp.0.enabled", "false"),
-					resource.TestCheckResourceAttr(resourceFullName, "security_key.0.enabled", "false"),
-					resource.TestCheckResourceAttr(resourceFullName, "platform.0.enabled", "false"),
+					resource.TestCheckResourceAttr(resourceFullName, "fido2.0.enabled", "false"),
+					resource.TestCheckResourceAttr(resourceFullName, "security_key.#", "0"),
+					resource.TestCheckResourceAttr(resourceFullName, "platform.#", "0"),
+					resource.TestCheckResourceAttr(resourceFullName, "new_device_notification", "NONE"),
 				),
 			},
 		},
@@ -693,14 +757,16 @@ func TestAccMFAPolicy_Mobile_Change(t *testing.T) {
 
 	name := resourceName
 
+	firebaseCredentials := os.Getenv("PINGONE_GOOGLE_FIREBASE_CREDENTIALS")
+
 	resource.Test(t, resource.TestCase{
-		PreCheck:          func() { acctest.PreCheckEnvironment(t) },
-		ProviderFactories: acctest.ProviderFactories,
-		CheckDestroy:      testAccCheckMFAPolicyDestroy,
-		ErrorCheck:        acctest.ErrorCheck(t),
+		PreCheck:                 func() { acctest.PreCheckEnvironmentAndGoogleFirebaseCredentials(t) },
+		ProtoV6ProviderFactories: acctest.ProtoV6ProviderFactories,
+		CheckDestroy:             testAccCheckMFAPolicyDestroy,
+		ErrorCheck:               acctest.ErrorCheck(t),
 		Steps: []resource.TestStep{
 			{
-				Config: testAccMFAPolicyConfig_FullMobile(resourceName, name),
+				Config: testAccMFAPolicyConfig_FullMobile(resourceName, name, firebaseCredentials),
 				Check: resource.ComposeTestCheckFunc(
 					resource.TestCheckResourceAttr(resourceFullName, "sms.0.enabled", "false"),
 					resource.TestCheckResourceAttr(resourceFullName, "voice.0.enabled", "false"),
@@ -711,39 +777,65 @@ func TestAccMFAPolicy_Mobile_Change(t *testing.T) {
 					resource.TestCheckResourceAttr(resourceFullName, "mobile.0.otp_failure_cooldown_timeunit", "SECONDS"),
 					resource.TestCheckResourceAttr(resourceFullName, "mobile.0.application.#", "3"),
 					resource.TestMatchTypeSetElemNestedAttrs(resourceFullName, "mobile.0.application.*", map[string]*regexp.Regexp{
-						"id":                           regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`),
-						"push_enabled":                 regexp.MustCompile(`^true$`),
-						"push_timeout_duration":        regexp.MustCompile(`^100$`),
-						"push_timeout_timeunit":        regexp.MustCompile(`^SECONDS$`),
-						"otp_enabled":                  regexp.MustCompile(`^true$`),
-						"device_authorization_enabled": regexp.MustCompile(`^true$`),
+						"id":                                      verify.P1ResourceIDRegexp,
+						"pairing_disabled":                        regexp.MustCompile(`^true$`),
+						"push_enabled":                            regexp.MustCompile(`^true$`),
+						"push_timeout_duration":                   regexp.MustCompile(`^100$`),
+						"push_timeout_timeunit":                   regexp.MustCompile(`^SECONDS$`),
+						"pairing_key_lifetime_duration":           regexp.MustCompile(`^3$`),
+						"pairing_key_lifetime_timeunit":           regexp.MustCompile(`^HOURS$`),
+						"push_limit_count":                        regexp.MustCompile(`^10$`),
+						"push_limit_lock_duration":                regexp.MustCompile(`^260$`),
+						"push_limit_lock_duration_timeunit":       regexp.MustCompile(`^SECONDS$`),
+						"push_limit_time_period_duration":         regexp.MustCompile(`^300$`),
+						"push_limit_time_period_timeunit":         regexp.MustCompile(`^SECONDS$`),
+						"otp_enabled":                             regexp.MustCompile(`^true$`),
+						"device_authorization_enabled":            regexp.MustCompile(`^true$`),
 						"device_authorization_extra_verification": regexp.MustCompile(`^restrictive$`),
 						"auto_enrollment_enabled":                 regexp.MustCompile(`^true$`),
 						"integrity_detection":                     regexp.MustCompile(`^$`),
 					}),
 					resource.TestMatchTypeSetElemNestedAttrs(resourceFullName, "mobile.0.application.*", map[string]*regexp.Regexp{
-						"id":                    regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`),
-						"push_enabled":          regexp.MustCompile(`^false$`),
-						"push_timeout_duration": regexp.MustCompile(`^40$`),
-						"push_timeout_timeunit": regexp.MustCompile(`^SECONDS$`),
-						"otp_enabled":           regexp.MustCompile(`^true$`),
+						"id":                                      verify.P1ResourceIDRegexp,
+						"pairing_disabled":                        regexp.MustCompile(`^false$`),
+						"push_enabled":                            regexp.MustCompile(`^false$`),
+						"push_timeout_duration":                   regexp.MustCompile(`^40$`),
+						"push_timeout_timeunit":                   regexp.MustCompile(`^SECONDS$`),
+						"pairing_key_lifetime_duration":           regexp.MustCompile(`^10$`),
+						"pairing_key_lifetime_timeunit":           regexp.MustCompile(`^MINUTES$`),
+						"push_limit_count":                        regexp.MustCompile(`^5$`),
+						"push_limit_lock_duration":                regexp.MustCompile(`^30$`),
+						"push_limit_lock_duration_timeunit":       regexp.MustCompile(`^MINUTES$`),
+						"push_limit_time_period_duration":         regexp.MustCompile(`^10$`),
+						"push_limit_time_period_timeunit":         regexp.MustCompile(`^MINUTES$`),
+						"otp_enabled":                             regexp.MustCompile(`^true$`),
 						"device_authorization_extra_verification": regexp.MustCompile(`^$`),
 						"integrity_detection":                     regexp.MustCompile(`^permissive$`),
 					}),
 					resource.TestMatchTypeSetElemNestedAttrs(resourceFullName, "mobile.0.application.*", map[string]*regexp.Regexp{
-						"id":                           regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`),
-						"push_enabled":                 regexp.MustCompile(`^true$`),
-						"push_timeout_duration":        regexp.MustCompile(`^40$`),
-						"push_timeout_timeunit":        regexp.MustCompile(`^SECONDS$`),
-						"otp_enabled":                  regexp.MustCompile(`^true$`),
-						"device_authorization_enabled": regexp.MustCompile(`^false$`),
+						"id":                                      verify.P1ResourceIDRegexp,
+						"pairing_disabled":                        regexp.MustCompile(`^false$`),
+						"push_enabled":                            regexp.MustCompile(`^true$`),
+						"push_timeout_duration":                   regexp.MustCompile(`^40$`),
+						"push_timeout_timeunit":                   regexp.MustCompile(`^SECONDS$`),
+						"pairing_key_lifetime_duration":           regexp.MustCompile(`^55$`),
+						"pairing_key_lifetime_timeunit":           regexp.MustCompile(`^MINUTES$`),
+						"push_limit_count":                        regexp.MustCompile(`^5$`),
+						"push_limit_lock_duration":                regexp.MustCompile(`^25$`),
+						"push_limit_lock_duration_timeunit":       regexp.MustCompile(`^MINUTES$`),
+						"push_limit_time_period_duration":         regexp.MustCompile(`^5$`),
+						"push_limit_time_period_timeunit":         regexp.MustCompile(`^MINUTES$`),
+						"otp_enabled":                             regexp.MustCompile(`^true$`),
+						"device_authorization_enabled":            regexp.MustCompile(`^false$`),
 						"device_authorization_extra_verification": regexp.MustCompile(`^$`),
 						"auto_enrollment_enabled":                 regexp.MustCompile(`^true$`),
 						"integrity_detection":                     regexp.MustCompile(`^permissive$`),
 					}),
 					resource.TestCheckResourceAttr(resourceFullName, "totp.0.enabled", "false"),
-					resource.TestCheckResourceAttr(resourceFullName, "security_key.0.enabled", "false"),
-					resource.TestCheckResourceAttr(resourceFullName, "platform.0.enabled", "false"),
+					resource.TestCheckResourceAttr(resourceFullName, "fido2.0.enabled", "false"),
+					resource.TestCheckResourceAttr(resourceFullName, "security_key.#", "0"),
+					resource.TestCheckResourceAttr(resourceFullName, "platform.#", "0"),
+					resource.TestCheckResourceAttr(resourceFullName, "new_device_notification", "SMS_THEN_EMAIL"),
 				),
 			},
 			{
@@ -757,12 +849,14 @@ func TestAccMFAPolicy_Mobile_Change(t *testing.T) {
 					resource.TestCheckResourceAttr(resourceFullName, "mobile.0.otp_failure_cooldown_duration", "2"),
 					resource.TestCheckResourceAttr(resourceFullName, "mobile.0.otp_failure_cooldown_timeunit", "MINUTES"),
 					resource.TestCheckResourceAttr(resourceFullName, "totp.0.enabled", "false"),
-					resource.TestCheckResourceAttr(resourceFullName, "security_key.0.enabled", "false"),
-					resource.TestCheckResourceAttr(resourceFullName, "platform.0.enabled", "false"),
+					resource.TestCheckResourceAttr(resourceFullName, "fido2.0.enabled", "false"),
+					resource.TestCheckResourceAttr(resourceFullName, "security_key.#", "0"),
+					resource.TestCheckResourceAttr(resourceFullName, "platform.#", "0"),
+					resource.TestCheckResourceAttr(resourceFullName, "new_device_notification", "NONE"),
 				),
 			},
 			{
-				Config: testAccMFAPolicyConfig_FullMobile(resourceName, name),
+				Config: testAccMFAPolicyConfig_FullMobile(resourceName, name, firebaseCredentials),
 				Check: resource.ComposeTestCheckFunc(
 					resource.TestCheckResourceAttr(resourceFullName, "sms.0.enabled", "false"),
 					resource.TestCheckResourceAttr(resourceFullName, "voice.0.enabled", "false"),
@@ -773,39 +867,65 @@ func TestAccMFAPolicy_Mobile_Change(t *testing.T) {
 					resource.TestCheckResourceAttr(resourceFullName, "mobile.0.otp_failure_cooldown_timeunit", "SECONDS"),
 					resource.TestCheckResourceAttr(resourceFullName, "mobile.0.application.#", "3"),
 					resource.TestMatchTypeSetElemNestedAttrs(resourceFullName, "mobile.0.application.*", map[string]*regexp.Regexp{
-						"id":                           regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`),
-						"push_enabled":                 regexp.MustCompile(`^true$`),
-						"push_timeout_duration":        regexp.MustCompile(`^100$`),
-						"push_timeout_timeunit":        regexp.MustCompile(`^SECONDS$`),
-						"otp_enabled":                  regexp.MustCompile(`^true$`),
-						"device_authorization_enabled": regexp.MustCompile(`^true$`),
+						"id":                                      verify.P1ResourceIDRegexp,
+						"pairing_disabled":                        regexp.MustCompile(`^true$`),
+						"push_enabled":                            regexp.MustCompile(`^true$`),
+						"push_timeout_duration":                   regexp.MustCompile(`^100$`),
+						"push_timeout_timeunit":                   regexp.MustCompile(`^SECONDS$`),
+						"pairing_key_lifetime_duration":           regexp.MustCompile(`^3$`),
+						"pairing_key_lifetime_timeunit":           regexp.MustCompile(`^HOURS$`),
+						"push_limit_count":                        regexp.MustCompile(`^10$`),
+						"push_limit_lock_duration":                regexp.MustCompile(`^260$`),
+						"push_limit_lock_duration_timeunit":       regexp.MustCompile(`^SECONDS$`),
+						"push_limit_time_period_duration":         regexp.MustCompile(`^300$`),
+						"push_limit_time_period_timeunit":         regexp.MustCompile(`^SECONDS$`),
+						"otp_enabled":                             regexp.MustCompile(`^true$`),
+						"device_authorization_enabled":            regexp.MustCompile(`^true$`),
 						"device_authorization_extra_verification": regexp.MustCompile(`^restrictive$`),
 						"auto_enrollment_enabled":                 regexp.MustCompile(`^true$`),
 						"integrity_detection":                     regexp.MustCompile(`^$`),
 					}),
 					resource.TestMatchTypeSetElemNestedAttrs(resourceFullName, "mobile.0.application.*", map[string]*regexp.Regexp{
-						"id":                    regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`),
-						"push_enabled":          regexp.MustCompile(`^false$`),
-						"push_timeout_duration": regexp.MustCompile(`^40$`),
-						"push_timeout_timeunit": regexp.MustCompile(`^SECONDS$`),
-						"otp_enabled":           regexp.MustCompile(`^true$`),
+						"id":                                      verify.P1ResourceIDRegexp,
+						"pairing_disabled":                        regexp.MustCompile(`^false$`),
+						"push_enabled":                            regexp.MustCompile(`^false$`),
+						"push_timeout_duration":                   regexp.MustCompile(`^40$`),
+						"push_timeout_timeunit":                   regexp.MustCompile(`^SECONDS$`),
+						"pairing_key_lifetime_duration":           regexp.MustCompile(`^10$`),
+						"pairing_key_lifetime_timeunit":           regexp.MustCompile(`^MINUTES$`),
+						"push_limit_count":                        regexp.MustCompile(`^5$`),
+						"push_limit_lock_duration":                regexp.MustCompile(`^30$`),
+						"push_limit_lock_duration_timeunit":       regexp.MustCompile(`^MINUTES$`),
+						"push_limit_time_period_duration":         regexp.MustCompile(`^10$`),
+						"push_limit_time_period_timeunit":         regexp.MustCompile(`^MINUTES$`),
+						"otp_enabled":                             regexp.MustCompile(`^true$`),
 						"device_authorization_extra_verification": regexp.MustCompile(`^$`),
 						"integrity_detection":                     regexp.MustCompile(`^permissive$`),
 					}),
 					resource.TestMatchTypeSetElemNestedAttrs(resourceFullName, "mobile.0.application.*", map[string]*regexp.Regexp{
-						"id":                           regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`),
-						"push_enabled":                 regexp.MustCompile(`^true$`),
-						"push_timeout_duration":        regexp.MustCompile(`^40$`),
-						"push_timeout_timeunit":        regexp.MustCompile(`^SECONDS$`),
-						"otp_enabled":                  regexp.MustCompile(`^true$`),
-						"device_authorization_enabled": regexp.MustCompile(`^false$`),
+						"id":                                      verify.P1ResourceIDRegexp,
+						"pairing_disabled":                        regexp.MustCompile(`^false$`),
+						"push_enabled":                            regexp.MustCompile(`^true$`),
+						"push_timeout_duration":                   regexp.MustCompile(`^40$`),
+						"push_timeout_timeunit":                   regexp.MustCompile(`^SECONDS$`),
+						"pairing_key_lifetime_duration":           regexp.MustCompile(`^55$`),
+						"pairing_key_lifetime_timeunit":           regexp.MustCompile(`^MINUTES$`),
+						"push_limit_count":                        regexp.MustCompile(`^5$`),
+						"push_limit_lock_duration":                regexp.MustCompile(`^25$`),
+						"push_limit_lock_duration_timeunit":       regexp.MustCompile(`^MINUTES$`),
+						"push_limit_time_period_duration":         regexp.MustCompile(`^5$`),
+						"push_limit_time_period_timeunit":         regexp.MustCompile(`^MINUTES$`),
+						"otp_enabled":                             regexp.MustCompile(`^true$`),
+						"device_authorization_enabled":            regexp.MustCompile(`^false$`),
 						"device_authorization_extra_verification": regexp.MustCompile(`^$`),
 						"auto_enrollment_enabled":                 regexp.MustCompile(`^true$`),
 						"integrity_detection":                     regexp.MustCompile(`^permissive$`),
 					}),
 					resource.TestCheckResourceAttr(resourceFullName, "totp.0.enabled", "false"),
-					resource.TestCheckResourceAttr(resourceFullName, "security_key.0.enabled", "false"),
-					resource.TestCheckResourceAttr(resourceFullName, "platform.0.enabled", "false"),
+					resource.TestCheckResourceAttr(resourceFullName, "fido2.0.enabled", "false"),
+					resource.TestCheckResourceAttr(resourceFullName, "security_key.#", "0"),
+					resource.TestCheckResourceAttr(resourceFullName, "platform.#", "0"),
+					resource.TestCheckResourceAttr(resourceFullName, "new_device_notification", "SMS_THEN_EMAIL"),
 				),
 			},
 		},
@@ -821,10 +941,10 @@ func TestAccMFAPolicy_Totp_Full(t *testing.T) {
 	name := resourceName
 
 	resource.Test(t, resource.TestCase{
-		PreCheck:          func() { acctest.PreCheckEnvironment(t) },
-		ProviderFactories: acctest.ProviderFactories,
-		CheckDestroy:      testAccCheckMFAPolicyDestroy,
-		ErrorCheck:        acctest.ErrorCheck(t),
+		PreCheck:                 func() { acctest.PreCheckEnvironment(t) },
+		ProtoV6ProviderFactories: acctest.ProtoV6ProviderFactories,
+		CheckDestroy:             testAccCheckMFAPolicyDestroy,
+		ErrorCheck:               acctest.ErrorCheck(t),
 		Steps: []resource.TestStep{
 			{
 				Config: testAccMFAPolicyConfig_FullTotp(resourceName, name),
@@ -834,11 +954,14 @@ func TestAccMFAPolicy_Totp_Full(t *testing.T) {
 					resource.TestCheckResourceAttr(resourceFullName, "email.0.enabled", "false"),
 					resource.TestCheckResourceAttr(resourceFullName, "mobile.0.enabled", "false"),
 					resource.TestCheckResourceAttr(resourceFullName, "totp.0.enabled", "true"),
+					resource.TestCheckResourceAttr(resourceFullName, "totp.0.pairing_disabled", "true"),
 					resource.TestCheckResourceAttr(resourceFullName, "totp.0.otp_failure_count", "5"),
 					resource.TestCheckResourceAttr(resourceFullName, "totp.0.otp_failure_cooldown_duration", "125"),
 					resource.TestCheckResourceAttr(resourceFullName, "totp.0.otp_failure_cooldown_timeunit", "SECONDS"),
-					resource.TestCheckResourceAttr(resourceFullName, "security_key.0.enabled", "false"),
-					resource.TestCheckResourceAttr(resourceFullName, "platform.0.enabled", "false"),
+					resource.TestCheckResourceAttr(resourceFullName, "fido2.0.enabled", "false"),
+					resource.TestCheckResourceAttr(resourceFullName, "security_key.#", "0"),
+					resource.TestCheckResourceAttr(resourceFullName, "platform.#", "0"),
+					resource.TestCheckResourceAttr(resourceFullName, "new_device_notification", "SMS_THEN_EMAIL"),
 				),
 			},
 		},
@@ -854,10 +977,10 @@ func TestAccMFAPolicy_Totp_Minimal(t *testing.T) {
 	name := resourceName
 
 	resource.Test(t, resource.TestCase{
-		PreCheck:          func() { acctest.PreCheckEnvironment(t) },
-		ProviderFactories: acctest.ProviderFactories,
-		CheckDestroy:      testAccCheckMFAPolicyDestroy,
-		ErrorCheck:        acctest.ErrorCheck(t),
+		PreCheck:                 func() { acctest.PreCheckEnvironment(t) },
+		ProtoV6ProviderFactories: acctest.ProtoV6ProviderFactories,
+		CheckDestroy:             testAccCheckMFAPolicyDestroy,
+		ErrorCheck:               acctest.ErrorCheck(t),
 		Steps: []resource.TestStep{
 			{
 				Config: testAccMFAPolicyConfig_MinimalTotp(resourceName, name),
@@ -867,11 +990,14 @@ func TestAccMFAPolicy_Totp_Minimal(t *testing.T) {
 					resource.TestCheckResourceAttr(resourceFullName, "email.0.enabled", "false"),
 					resource.TestCheckResourceAttr(resourceFullName, "mobile.0.enabled", "false"),
 					resource.TestCheckResourceAttr(resourceFullName, "totp.0.enabled", "true"),
+					resource.TestCheckResourceAttr(resourceFullName, "totp.0.pairing_disabled", "false"),
 					resource.TestCheckResourceAttr(resourceFullName, "totp.0.otp_failure_count", "3"),
 					resource.TestCheckResourceAttr(resourceFullName, "totp.0.otp_failure_cooldown_duration", "2"),
 					resource.TestCheckResourceAttr(resourceFullName, "totp.0.otp_failure_cooldown_timeunit", "MINUTES"),
-					resource.TestCheckResourceAttr(resourceFullName, "security_key.0.enabled", "false"),
-					resource.TestCheckResourceAttr(resourceFullName, "platform.0.enabled", "false"),
+					resource.TestCheckResourceAttr(resourceFullName, "fido2.0.enabled", "false"),
+					resource.TestCheckResourceAttr(resourceFullName, "security_key.#", "0"),
+					resource.TestCheckResourceAttr(resourceFullName, "platform.#", "0"),
+					resource.TestCheckResourceAttr(resourceFullName, "new_device_notification", "NONE"),
 				),
 			},
 		},
@@ -887,10 +1013,10 @@ func TestAccMFAPolicy_Totp_Change(t *testing.T) {
 	name := resourceName
 
 	resource.Test(t, resource.TestCase{
-		PreCheck:          func() { acctest.PreCheckEnvironment(t) },
-		ProviderFactories: acctest.ProviderFactories,
-		CheckDestroy:      testAccCheckMFAPolicyDestroy,
-		ErrorCheck:        acctest.ErrorCheck(t),
+		PreCheck:                 func() { acctest.PreCheckEnvironment(t) },
+		ProtoV6ProviderFactories: acctest.ProtoV6ProviderFactories,
+		CheckDestroy:             testAccCheckMFAPolicyDestroy,
+		ErrorCheck:               acctest.ErrorCheck(t),
 		Steps: []resource.TestStep{
 			{
 				Config: testAccMFAPolicyConfig_FullTotp(resourceName, name),
@@ -900,11 +1026,14 @@ func TestAccMFAPolicy_Totp_Change(t *testing.T) {
 					resource.TestCheckResourceAttr(resourceFullName, "email.0.enabled", "false"),
 					resource.TestCheckResourceAttr(resourceFullName, "mobile.0.enabled", "false"),
 					resource.TestCheckResourceAttr(resourceFullName, "totp.0.enabled", "true"),
+					resource.TestCheckResourceAttr(resourceFullName, "totp.0.pairing_disabled", "true"),
 					resource.TestCheckResourceAttr(resourceFullName, "totp.0.otp_failure_count", "5"),
 					resource.TestCheckResourceAttr(resourceFullName, "totp.0.otp_failure_cooldown_duration", "125"),
 					resource.TestCheckResourceAttr(resourceFullName, "totp.0.otp_failure_cooldown_timeunit", "SECONDS"),
-					resource.TestCheckResourceAttr(resourceFullName, "security_key.0.enabled", "false"),
-					resource.TestCheckResourceAttr(resourceFullName, "platform.0.enabled", "false"),
+					resource.TestCheckResourceAttr(resourceFullName, "fido2.0.enabled", "false"),
+					resource.TestCheckResourceAttr(resourceFullName, "security_key.#", "0"),
+					resource.TestCheckResourceAttr(resourceFullName, "platform.#", "0"),
+					resource.TestCheckResourceAttr(resourceFullName, "new_device_notification", "SMS_THEN_EMAIL"),
 				),
 			},
 			{
@@ -915,11 +1044,14 @@ func TestAccMFAPolicy_Totp_Change(t *testing.T) {
 					resource.TestCheckResourceAttr(resourceFullName, "email.0.enabled", "false"),
 					resource.TestCheckResourceAttr(resourceFullName, "mobile.0.enabled", "false"),
 					resource.TestCheckResourceAttr(resourceFullName, "totp.0.enabled", "true"),
+					resource.TestCheckResourceAttr(resourceFullName, "totp.0.pairing_disabled", "false"),
 					resource.TestCheckResourceAttr(resourceFullName, "totp.0.otp_failure_count", "3"),
 					resource.TestCheckResourceAttr(resourceFullName, "totp.0.otp_failure_cooldown_duration", "2"),
 					resource.TestCheckResourceAttr(resourceFullName, "totp.0.otp_failure_cooldown_timeunit", "MINUTES"),
-					resource.TestCheckResourceAttr(resourceFullName, "security_key.0.enabled", "false"),
-					resource.TestCheckResourceAttr(resourceFullName, "platform.0.enabled", "false"),
+					resource.TestCheckResourceAttr(resourceFullName, "fido2.0.enabled", "false"),
+					resource.TestCheckResourceAttr(resourceFullName, "security_key.#", "0"),
+					resource.TestCheckResourceAttr(resourceFullName, "platform.#", "0"),
+					resource.TestCheckResourceAttr(resourceFullName, "new_device_notification", "NONE"),
 				),
 			},
 			{
@@ -930,11 +1062,148 @@ func TestAccMFAPolicy_Totp_Change(t *testing.T) {
 					resource.TestCheckResourceAttr(resourceFullName, "email.0.enabled", "false"),
 					resource.TestCheckResourceAttr(resourceFullName, "mobile.0.enabled", "false"),
 					resource.TestCheckResourceAttr(resourceFullName, "totp.0.enabled", "true"),
+					resource.TestCheckResourceAttr(resourceFullName, "totp.0.pairing_disabled", "true"),
 					resource.TestCheckResourceAttr(resourceFullName, "totp.0.otp_failure_count", "5"),
 					resource.TestCheckResourceAttr(resourceFullName, "totp.0.otp_failure_cooldown_duration", "125"),
 					resource.TestCheckResourceAttr(resourceFullName, "totp.0.otp_failure_cooldown_timeunit", "SECONDS"),
-					resource.TestCheckResourceAttr(resourceFullName, "security_key.0.enabled", "false"),
-					resource.TestCheckResourceAttr(resourceFullName, "platform.0.enabled", "false"),
+					resource.TestCheckResourceAttr(resourceFullName, "fido2.0.enabled", "false"),
+					resource.TestCheckResourceAttr(resourceFullName, "security_key.#", "0"),
+					resource.TestCheckResourceAttr(resourceFullName, "platform.#", "0"),
+					resource.TestCheckResourceAttr(resourceFullName, "new_device_notification", "SMS_THEN_EMAIL"),
+				),
+			},
+		},
+	})
+}
+
+func TestAccMFAPolicy_FIDO2_Full(t *testing.T) {
+	t.Parallel()
+
+	resourceName := acctest.ResourceNameGen()
+	resourceFullName := fmt.Sprintf("pingone_mfa_policy.%s", resourceName)
+
+	name := resourceName
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { acctest.PreCheckEnvironment(t) },
+		ProtoV6ProviderFactories: acctest.ProtoV6ProviderFactories,
+		CheckDestroy:             testAccCheckMFAPolicyDestroy,
+		ErrorCheck:               acctest.ErrorCheck(t),
+		Steps: []resource.TestStep{
+			{
+				Config: testAccMFAPolicyConfig_FullFIDO2(resourceName, name),
+				Check: resource.ComposeTestCheckFunc(
+					resource.TestCheckResourceAttr(resourceFullName, "sms.0.enabled", "false"),
+					resource.TestCheckResourceAttr(resourceFullName, "voice.0.enabled", "false"),
+					resource.TestCheckResourceAttr(resourceFullName, "email.0.enabled", "false"),
+					resource.TestCheckResourceAttr(resourceFullName, "mobile.0.enabled", "false"),
+					resource.TestCheckResourceAttr(resourceFullName, "totp.0.enabled", "false"),
+					resource.TestCheckResourceAttr(resourceFullName, "fido2.0.enabled", "true"),
+					resource.TestCheckResourceAttr(resourceFullName, "fido2.0.pairing_disabled", "true"),
+					resource.TestMatchResourceAttr(resourceFullName, "fido2.0.fido2_policy_id", verify.P1ResourceIDRegexp),
+					resource.TestCheckResourceAttr(resourceFullName, "security_key.#", "0"),
+					resource.TestCheckResourceAttr(resourceFullName, "platform.#", "0"),
+					resource.TestCheckResourceAttr(resourceFullName, "new_device_notification", "SMS_THEN_EMAIL"),
+				),
+			},
+		},
+	})
+}
+
+func TestAccMFAPolicy_FIDO2_Minimal(t *testing.T) {
+	t.Parallel()
+
+	resourceName := acctest.ResourceNameGen()
+	resourceFullName := fmt.Sprintf("pingone_mfa_policy.%s", resourceName)
+
+	name := resourceName
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { acctest.PreCheckEnvironment(t) },
+		ProtoV6ProviderFactories: acctest.ProtoV6ProviderFactories,
+		CheckDestroy:             testAccCheckMFAPolicyDestroy,
+		ErrorCheck:               acctest.ErrorCheck(t),
+		Steps: []resource.TestStep{
+			{
+				Config: testAccMFAPolicyConfig_MinimalFIDO2(resourceName, name),
+				Check: resource.ComposeTestCheckFunc(
+					resource.TestCheckResourceAttr(resourceFullName, "sms.0.enabled", "false"),
+					resource.TestCheckResourceAttr(resourceFullName, "voice.0.enabled", "false"),
+					resource.TestCheckResourceAttr(resourceFullName, "email.0.enabled", "false"),
+					resource.TestCheckResourceAttr(resourceFullName, "mobile.0.enabled", "false"),
+					resource.TestCheckResourceAttr(resourceFullName, "totp.0.enabled", "false"),
+					resource.TestCheckResourceAttr(resourceFullName, "fido2.0.enabled", "true"),
+					resource.TestCheckResourceAttr(resourceFullName, "fido2.0.pairing_disabled", "false"),
+					resource.TestCheckResourceAttr(resourceFullName, "fido2.0.fido2_policy_id", ""),
+					resource.TestCheckResourceAttr(resourceFullName, "security_key.#", "0"),
+					resource.TestCheckResourceAttr(resourceFullName, "platform.#", "0"),
+					resource.TestCheckResourceAttr(resourceFullName, "new_device_notification", "NONE"),
+				),
+			},
+		},
+	})
+}
+
+func TestAccMFAPolicy_FIDO2_Change(t *testing.T) {
+	t.Parallel()
+
+	resourceName := acctest.ResourceNameGen()
+	resourceFullName := fmt.Sprintf("pingone_mfa_policy.%s", resourceName)
+
+	name := resourceName
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { acctest.PreCheckEnvironment(t) },
+		ProtoV6ProviderFactories: acctest.ProtoV6ProviderFactories,
+		CheckDestroy:             testAccCheckMFAPolicyDestroy,
+		ErrorCheck:               acctest.ErrorCheck(t),
+		Steps: []resource.TestStep{
+			{
+				Config: testAccMFAPolicyConfig_FullFIDO2(resourceName, name),
+				Check: resource.ComposeTestCheckFunc(
+					resource.TestCheckResourceAttr(resourceFullName, "sms.0.enabled", "false"),
+					resource.TestCheckResourceAttr(resourceFullName, "voice.0.enabled", "false"),
+					resource.TestCheckResourceAttr(resourceFullName, "email.0.enabled", "false"),
+					resource.TestCheckResourceAttr(resourceFullName, "mobile.0.enabled", "false"),
+					resource.TestCheckResourceAttr(resourceFullName, "totp.0.enabled", "false"),
+					resource.TestCheckResourceAttr(resourceFullName, "fido2.0.enabled", "true"),
+					resource.TestCheckResourceAttr(resourceFullName, "fido2.0.pairing_disabled", "true"),
+					resource.TestMatchResourceAttr(resourceFullName, "fido2.0.fido2_policy_id", verify.P1ResourceIDRegexp),
+					resource.TestCheckResourceAttr(resourceFullName, "security_key.#", "0"),
+					resource.TestCheckResourceAttr(resourceFullName, "platform.#", "0"),
+					resource.TestCheckResourceAttr(resourceFullName, "new_device_notification", "SMS_THEN_EMAIL"),
+				),
+			},
+			{
+				Config: testAccMFAPolicyConfig_MinimalFIDO2(resourceName, name),
+				Check: resource.ComposeTestCheckFunc(
+					resource.TestCheckResourceAttr(resourceFullName, "sms.0.enabled", "false"),
+					resource.TestCheckResourceAttr(resourceFullName, "voice.0.enabled", "false"),
+					resource.TestCheckResourceAttr(resourceFullName, "email.0.enabled", "false"),
+					resource.TestCheckResourceAttr(resourceFullName, "mobile.0.enabled", "false"),
+					resource.TestCheckResourceAttr(resourceFullName, "totp.0.enabled", "false"),
+					resource.TestCheckResourceAttr(resourceFullName, "fido2.0.enabled", "true"),
+					resource.TestCheckResourceAttr(resourceFullName, "fido2.0.pairing_disabled", "false"),
+					resource.TestCheckResourceAttr(resourceFullName, "fido2.0.fido2_policy_id", ""),
+					resource.TestCheckResourceAttr(resourceFullName, "security_key.#", "0"),
+					resource.TestCheckResourceAttr(resourceFullName, "platform.#", "0"),
+					resource.TestCheckResourceAttr(resourceFullName, "new_device_notification", "NONE"),
+				),
+			},
+			{
+				Config: testAccMFAPolicyConfig_FullFIDO2(resourceName, name),
+				Check: resource.ComposeTestCheckFunc(
+					resource.TestCheckResourceAttr(resourceFullName, "sms.0.enabled", "false"),
+					resource.TestCheckResourceAttr(resourceFullName, "voice.0.enabled", "false"),
+					resource.TestCheckResourceAttr(resourceFullName, "email.0.enabled", "false"),
+					resource.TestCheckResourceAttr(resourceFullName, "mobile.0.enabled", "false"),
+					resource.TestCheckResourceAttr(resourceFullName, "totp.0.enabled", "false"),
+					resource.TestCheckResourceAttr(resourceFullName, "fido2.0.enabled", "true"),
+					resource.TestCheckResourceAttr(resourceFullName, "fido2.0.pairing_disabled", "true"),
+					resource.TestMatchResourceAttr(resourceFullName, "fido2.0.fido2_policy_id", verify.P1ResourceIDRegexp),
+					resource.TestCheckResourceAttr(resourceFullName, "security_key.#", "0"),
+					resource.TestCheckResourceAttr(resourceFullName, "platform.#", "0"),
+					resource.TestCheckResourceAttr(resourceFullName, "new_device_notification", "SMS_THEN_EMAIL"),
 				),
 			},
 		},
@@ -950,10 +1219,11 @@ func TestAccMFAPolicy_SecurityKey_Full(t *testing.T) {
 	name := resourceName
 
 	resource.Test(t, resource.TestCase{
-		PreCheck:          func() { acctest.PreCheckEnvironment(t) },
-		ProviderFactories: acctest.ProviderFactories,
-		CheckDestroy:      testAccCheckMFAPolicyDestroy,
-		ErrorCheck:        acctest.ErrorCheck(t),
+		//PreCheck:                 func() { acctest.PreCheckEnvironment(t) },
+		PreCheck:                 func() { t.Skipf("Device method deprecated for new environments") },
+		ProtoV6ProviderFactories: acctest.ProtoV6ProviderFactories,
+		CheckDestroy:             testAccCheckMFAPolicyDestroy,
+		ErrorCheck:               acctest.ErrorCheck(t),
 		Steps: []resource.TestStep{
 			{
 				Config: testAccMFAPolicyConfig_FullSecurityKey(resourceName, name),
@@ -964,7 +1234,7 @@ func TestAccMFAPolicy_SecurityKey_Full(t *testing.T) {
 					resource.TestCheckResourceAttr(resourceFullName, "mobile.0.enabled", "false"),
 					resource.TestCheckResourceAttr(resourceFullName, "totp.0.enabled", "false"),
 					resource.TestCheckResourceAttr(resourceFullName, "security_key.0.enabled", "true"),
-					resource.TestMatchResourceAttr(resourceFullName, "security_key.0.fido_policy_id", regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)),
+					resource.TestMatchResourceAttr(resourceFullName, "security_key.0.fido_policy_id", verify.P1ResourceIDRegexp),
 					resource.TestCheckResourceAttr(resourceFullName, "platform.0.enabled", "false"),
 				),
 			},
@@ -981,10 +1251,11 @@ func TestAccMFAPolicy_SecurityKey_Minimal(t *testing.T) {
 	name := resourceName
 
 	resource.Test(t, resource.TestCase{
-		PreCheck:          func() { acctest.PreCheckEnvironment(t) },
-		ProviderFactories: acctest.ProviderFactories,
-		CheckDestroy:      testAccCheckMFAPolicyDestroy,
-		ErrorCheck:        acctest.ErrorCheck(t),
+		//PreCheck:                 func() { acctest.PreCheckEnvironment(t) },
+		PreCheck:                 func() { t.Skipf("Device method deprecated for new environments") },
+		ProtoV6ProviderFactories: acctest.ProtoV6ProviderFactories,
+		CheckDestroy:             testAccCheckMFAPolicyDestroy,
+		ErrorCheck:               acctest.ErrorCheck(t),
 		Steps: []resource.TestStep{
 			{
 				Config: testAccMFAPolicyConfig_MinimalSecurityKey(resourceName, name),
@@ -1012,10 +1283,11 @@ func TestAccMFAPolicy_SecurityKey_Change(t *testing.T) {
 	name := resourceName
 
 	resource.Test(t, resource.TestCase{
-		PreCheck:          func() { acctest.PreCheckEnvironment(t) },
-		ProviderFactories: acctest.ProviderFactories,
-		CheckDestroy:      testAccCheckMFAPolicyDestroy,
-		ErrorCheck:        acctest.ErrorCheck(t),
+		//PreCheck:                 func() { acctest.PreCheckEnvironment(t) },
+		PreCheck:                 func() { t.Skipf("Device method deprecated for new environments") },
+		ProtoV6ProviderFactories: acctest.ProtoV6ProviderFactories,
+		CheckDestroy:             testAccCheckMFAPolicyDestroy,
+		ErrorCheck:               acctest.ErrorCheck(t),
 		Steps: []resource.TestStep{
 			{
 				Config: testAccMFAPolicyConfig_FullSecurityKey(resourceName, name),
@@ -1026,7 +1298,7 @@ func TestAccMFAPolicy_SecurityKey_Change(t *testing.T) {
 					resource.TestCheckResourceAttr(resourceFullName, "mobile.0.enabled", "false"),
 					resource.TestCheckResourceAttr(resourceFullName, "totp.0.enabled", "false"),
 					resource.TestCheckResourceAttr(resourceFullName, "security_key.0.enabled", "true"),
-					resource.TestMatchResourceAttr(resourceFullName, "security_key.0.fido_policy_id", regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)),
+					resource.TestMatchResourceAttr(resourceFullName, "security_key.0.fido_policy_id", verify.P1ResourceIDRegexp),
 					resource.TestCheckResourceAttr(resourceFullName, "platform.0.enabled", "false"),
 				),
 			},
@@ -1052,7 +1324,7 @@ func TestAccMFAPolicy_SecurityKey_Change(t *testing.T) {
 					resource.TestCheckResourceAttr(resourceFullName, "mobile.0.enabled", "false"),
 					resource.TestCheckResourceAttr(resourceFullName, "totp.0.enabled", "false"),
 					resource.TestCheckResourceAttr(resourceFullName, "security_key.0.enabled", "true"),
-					resource.TestMatchResourceAttr(resourceFullName, "security_key.0.fido_policy_id", regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)),
+					resource.TestMatchResourceAttr(resourceFullName, "security_key.0.fido_policy_id", verify.P1ResourceIDRegexp),
 					resource.TestCheckResourceAttr(resourceFullName, "platform.0.enabled", "false"),
 				),
 			},
@@ -1069,10 +1341,11 @@ func TestAccMFAPolicy_Platform_Full(t *testing.T) {
 	name := resourceName
 
 	resource.Test(t, resource.TestCase{
-		PreCheck:          func() { acctest.PreCheckEnvironment(t) },
-		ProviderFactories: acctest.ProviderFactories,
-		CheckDestroy:      testAccCheckMFAPolicyDestroy,
-		ErrorCheck:        acctest.ErrorCheck(t),
+		//PreCheck:                 func() { acctest.PreCheckEnvironment(t) },
+		PreCheck:                 func() { t.Skipf("Device method deprecated for new environments") },
+		ProtoV6ProviderFactories: acctest.ProtoV6ProviderFactories,
+		CheckDestroy:             testAccCheckMFAPolicyDestroy,
+		ErrorCheck:               acctest.ErrorCheck(t),
 		Steps: []resource.TestStep{
 			{
 				Config: testAccMFAPolicyConfig_FullPlatform(resourceName, name),
@@ -1084,7 +1357,7 @@ func TestAccMFAPolicy_Platform_Full(t *testing.T) {
 					resource.TestCheckResourceAttr(resourceFullName, "totp.0.enabled", "false"),
 					resource.TestCheckResourceAttr(resourceFullName, "security_key.0.enabled", "false"),
 					resource.TestCheckResourceAttr(resourceFullName, "platform.0.enabled", "true"),
-					resource.TestMatchResourceAttr(resourceFullName, "platform.0.fido_policy_id", regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)),
+					resource.TestMatchResourceAttr(resourceFullName, "platform.0.fido_policy_id", verify.P1ResourceIDRegexp),
 				),
 			},
 		},
@@ -1100,10 +1373,11 @@ func TestAccMFAPolicy_Platform_Minimal(t *testing.T) {
 	name := resourceName
 
 	resource.Test(t, resource.TestCase{
-		PreCheck:          func() { acctest.PreCheckEnvironment(t) },
-		ProviderFactories: acctest.ProviderFactories,
-		CheckDestroy:      testAccCheckMFAPolicyDestroy,
-		ErrorCheck:        acctest.ErrorCheck(t),
+		//PreCheck:                 func() { acctest.PreCheckEnvironment(t) },
+		PreCheck:                 func() { t.Skipf("Device method deprecated for new environments") },
+		ProtoV6ProviderFactories: acctest.ProtoV6ProviderFactories,
+		CheckDestroy:             testAccCheckMFAPolicyDestroy,
+		ErrorCheck:               acctest.ErrorCheck(t),
 		Steps: []resource.TestStep{
 			{
 				Config: testAccMFAPolicyConfig_MinimalPlatform(resourceName, name),
@@ -1116,6 +1390,7 @@ func TestAccMFAPolicy_Platform_Minimal(t *testing.T) {
 					resource.TestCheckResourceAttr(resourceFullName, "security_key.0.enabled", "false"),
 					resource.TestCheckResourceAttr(resourceFullName, "platform.0.enabled", "true"),
 					resource.TestCheckResourceAttr(resourceFullName, "platform.0.fido_policy_id", ""),
+					resource.TestCheckResourceAttr(resourceFullName, "new_device_notification", "EMAIL_THEN_SMS"),
 				),
 			},
 		},
@@ -1131,10 +1406,11 @@ func TestAccMFAPolicy_Platform_Change(t *testing.T) {
 	name := resourceName
 
 	resource.Test(t, resource.TestCase{
-		PreCheck:          func() { acctest.PreCheckEnvironment(t) },
-		ProviderFactories: acctest.ProviderFactories,
-		CheckDestroy:      testAccCheckMFAPolicyDestroy,
-		ErrorCheck:        acctest.ErrorCheck(t),
+		//PreCheck:                 func() { acctest.PreCheckEnvironment(t) },
+		PreCheck:                 func() { t.Skipf("Device method deprecated for new environments") },
+		ProtoV6ProviderFactories: acctest.ProtoV6ProviderFactories,
+		CheckDestroy:             testAccCheckMFAPolicyDestroy,
+		ErrorCheck:               acctest.ErrorCheck(t),
 		Steps: []resource.TestStep{
 			{
 				Config: testAccMFAPolicyConfig_FullPlatform(resourceName, name),
@@ -1146,7 +1422,7 @@ func TestAccMFAPolicy_Platform_Change(t *testing.T) {
 					resource.TestCheckResourceAttr(resourceFullName, "totp.0.enabled", "false"),
 					resource.TestCheckResourceAttr(resourceFullName, "security_key.0.enabled", "false"),
 					resource.TestCheckResourceAttr(resourceFullName, "platform.0.enabled", "true"),
-					resource.TestMatchResourceAttr(resourceFullName, "platform.0.fido_policy_id", regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)),
+					resource.TestMatchResourceAttr(resourceFullName, "platform.0.fido_policy_id", verify.P1ResourceIDRegexp),
 				),
 			},
 			{
@@ -1172,7 +1448,7 @@ func TestAccMFAPolicy_Platform_Change(t *testing.T) {
 					resource.TestCheckResourceAttr(resourceFullName, "totp.0.enabled", "false"),
 					resource.TestCheckResourceAttr(resourceFullName, "security_key.0.enabled", "false"),
 					resource.TestCheckResourceAttr(resourceFullName, "platform.0.enabled", "true"),
-					resource.TestMatchResourceAttr(resourceFullName, "platform.0.fido_policy_id", regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)),
+					resource.TestMatchResourceAttr(resourceFullName, "platform.0.fido_policy_id", verify.P1ResourceIDRegexp),
 				),
 			},
 		},
@@ -1188,65 +1464,70 @@ func TestAccMFAPolicy_DataModel(t *testing.T) {
 	name := resourceName
 
 	resource.Test(t, resource.TestCase{
-		PreCheck:          func() { acctest.PreCheckEnvironment(t) },
-		ProviderFactories: acctest.ProviderFactories,
-		CheckDestroy:      testAccCheckMFAPolicyDestroy,
-		ErrorCheck:        acctest.ErrorCheck(t),
+		PreCheck:                 func() { acctest.PreCheckEnvironment(t) },
+		ProtoV6ProviderFactories: acctest.ProtoV6ProviderFactories,
+		CheckDestroy:             testAccCheckMFAPolicyDestroy,
+		ErrorCheck:               acctest.ErrorCheck(t),
 		Steps: []resource.TestStep{
 			// Minimal from new
 			{
-				Config: testAccMFAPolicyConfig_MinimalPlatform(resourceName, name),
+				Config: testAccMFAPolicyConfig_MinimalFIDO2(resourceName, name),
 				Check: resource.ComposeTestCheckFunc(
-					resource.TestMatchResourceAttr(resourceFullName, "id", regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)),
-					resource.TestMatchResourceAttr(resourceFullName, "environment_id", regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)),
+					resource.TestMatchResourceAttr(resourceFullName, "id", verify.P1ResourceIDRegexp),
+					resource.TestMatchResourceAttr(resourceFullName, "environment_id", verify.P1ResourceIDRegexp),
 					resource.TestCheckResourceAttr(resourceFullName, "name", name),
 					resource.TestCheckResourceAttr(resourceFullName, "device_selection", "DEFAULT_TO_FIRST"),
+					resource.TestCheckResourceAttr(resourceFullName, "new_device_notification", "NONE"),
 				),
 			},
 			{
-				Config:  testAccMFAPolicyConfig_MinimalPlatform(resourceName, name),
+				Config:  testAccMFAPolicyConfig_MinimalFIDO2(resourceName, name),
 				Destroy: true,
 			},
 			// Full from new
 			{
-				Config: testAccMFAPolicyConfig_FullPlatform(resourceName, name),
+				Config: testAccMFAPolicyConfig_FullFIDO2(resourceName, name),
 				Check: resource.ComposeTestCheckFunc(
-					resource.TestMatchResourceAttr(resourceFullName, "id", regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)),
-					resource.TestMatchResourceAttr(resourceFullName, "environment_id", regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)),
+					resource.TestMatchResourceAttr(resourceFullName, "id", verify.P1ResourceIDRegexp),
+					resource.TestMatchResourceAttr(resourceFullName, "environment_id", verify.P1ResourceIDRegexp),
 					resource.TestCheckResourceAttr(resourceFullName, "name", name),
 					resource.TestCheckResourceAttr(resourceFullName, "device_selection", "PROMPT_TO_SELECT"),
+					resource.TestCheckResourceAttr(resourceFullName, "new_device_notification", "SMS_THEN_EMAIL"),
 				),
 			},
 			{
-				Config:  testAccMFAPolicyConfig_FullPlatform(resourceName, name),
+				Config:  testAccMFAPolicyConfig_FullFIDO2(resourceName, name),
 				Destroy: true,
 			},
 			// Update
 			{
-				Config: testAccMFAPolicyConfig_FullPlatform(resourceName, name),
+				Config: testAccMFAPolicyConfig_FullFIDO2(resourceName, name),
 				Check: resource.ComposeTestCheckFunc(
-					resource.TestMatchResourceAttr(resourceFullName, "id", regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)),
-					resource.TestMatchResourceAttr(resourceFullName, "environment_id", regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)),
+					resource.TestMatchResourceAttr(resourceFullName, "id", verify.P1ResourceIDRegexp),
+					resource.TestMatchResourceAttr(resourceFullName, "environment_id", verify.P1ResourceIDRegexp),
 					resource.TestCheckResourceAttr(resourceFullName, "name", name),
 					resource.TestCheckResourceAttr(resourceFullName, "device_selection", "PROMPT_TO_SELECT"),
+					resource.TestCheckResourceAttr(resourceFullName, "new_device_notification", "SMS_THEN_EMAIL"),
 				),
 			},
 			{
-				Config: testAccMFAPolicyConfig_MinimalPlatform(resourceName, name),
+				Config: testAccMFAPolicyConfig_MinimalFIDO2(resourceName, name),
 				Check: resource.ComposeTestCheckFunc(
-					resource.TestMatchResourceAttr(resourceFullName, "id", regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)),
-					resource.TestMatchResourceAttr(resourceFullName, "environment_id", regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)),
+					resource.TestMatchResourceAttr(resourceFullName, "id", verify.P1ResourceIDRegexp),
+					resource.TestMatchResourceAttr(resourceFullName, "environment_id", verify.P1ResourceIDRegexp),
 					resource.TestCheckResourceAttr(resourceFullName, "name", name),
 					resource.TestCheckResourceAttr(resourceFullName, "device_selection", "DEFAULT_TO_FIRST"),
+					resource.TestCheckResourceAttr(resourceFullName, "new_device_notification", "NONE"),
 				),
 			},
 			{
-				Config: testAccMFAPolicyConfig_FullPlatform(resourceName, name),
+				Config: testAccMFAPolicyConfig_FullFIDO2(resourceName, name),
 				Check: resource.ComposeTestCheckFunc(
-					resource.TestMatchResourceAttr(resourceFullName, "id", regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)),
-					resource.TestMatchResourceAttr(resourceFullName, "environment_id", regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)),
+					resource.TestMatchResourceAttr(resourceFullName, "id", verify.P1ResourceIDRegexp),
+					resource.TestMatchResourceAttr(resourceFullName, "environment_id", verify.P1ResourceIDRegexp),
 					resource.TestCheckResourceAttr(resourceFullName, "name", name),
 					resource.TestCheckResourceAttr(resourceFullName, "device_selection", "PROMPT_TO_SELECT"),
+					resource.TestCheckResourceAttr(resourceFullName, "new_device_notification", "SMS_THEN_EMAIL"),
 				),
 			},
 		},
@@ -1281,11 +1562,7 @@ resource "pingone_mfa_policy" "%[3]s" {
     enabled = true
   }
 
-  security_key {
-    enabled = true
-  }
-
-  platform {
+  fido2 {
     enabled = true
   }
 
@@ -1300,8 +1577,11 @@ resource "pingone_mfa_policy" "%[2]s" {
   environment_id = data.pingone_environment.general_test.id
   name           = "%[3]s"
 
+  new_device_notification = "SMS_THEN_EMAIL"
+
   sms {
-    enabled = true
+    enabled          = true
+    pairing_disabled = true
 
     otp_lifetime_duration = 75
     otp_lifetime_timeunit = "SECONDS"
@@ -1328,11 +1608,7 @@ resource "pingone_mfa_policy" "%[2]s" {
     enabled = false
   }
 
-  security_key {
-    enabled = false
-  }
-
-  platform {
+  fido2 {
     enabled = false
   }
 
@@ -1367,11 +1643,7 @@ resource "pingone_mfa_policy" "%[2]s" {
     enabled = false
   }
 
-  security_key {
-    enabled = false
-  }
-
-  platform {
+  fido2 {
     enabled = false
   }
 
@@ -1386,12 +1658,15 @@ resource "pingone_mfa_policy" "%[2]s" {
   environment_id = data.pingone_environment.general_test.id
   name           = "%[3]s"
 
+  new_device_notification = "SMS_THEN_EMAIL"
+
   sms {
     enabled = false
   }
 
   voice {
-    enabled = true
+    enabled          = true
+    pairing_disabled = true
 
     otp_lifetime_duration = 75
     otp_lifetime_timeunit = "SECONDS"
@@ -1414,11 +1689,7 @@ resource "pingone_mfa_policy" "%[2]s" {
     enabled = false
   }
 
-  security_key {
-    enabled = false
-  }
-
-  platform {
+  fido2 {
     enabled = false
   }
 
@@ -1453,11 +1724,7 @@ resource "pingone_mfa_policy" "%[2]s" {
     enabled = false
   }
 
-  security_key {
-    enabled = false
-  }
-
-  platform {
+  fido2 {
     enabled = false
   }
 
@@ -1472,6 +1739,8 @@ resource "pingone_mfa_policy" "%[2]s" {
   environment_id = data.pingone_environment.general_test.id
   name           = "%[3]s"
 
+  new_device_notification = "SMS_THEN_EMAIL"
+
   sms {
     enabled = false
   }
@@ -1481,7 +1750,8 @@ resource "pingone_mfa_policy" "%[2]s" {
   }
 
   email {
-    enabled = true
+    enabled          = true
+    pairing_disabled = true
 
     otp_lifetime_duration = 75
     otp_lifetime_timeunit = "SECONDS"
@@ -1500,11 +1770,7 @@ resource "pingone_mfa_policy" "%[2]s" {
     enabled = false
   }
 
-  security_key {
-    enabled = false
-  }
-
-  platform {
+  fido2 {
     enabled = false
   }
 
@@ -1539,18 +1805,14 @@ resource "pingone_mfa_policy" "%[2]s" {
     enabled = false
   }
 
-  security_key {
-    enabled = false
-  }
-
-  platform {
+  fido2 {
     enabled = false
   }
 
 }`, acctest.GenericSandboxEnvironment(), resourceName, name)
 }
 
-func testAccMFAPolicyConfig_FullMobile(resourceName, name string) string {
+func testAccMFAPolicyConfig_FullMobile(resourceName, name, key string) string {
 	return fmt.Sprintf(`
 		%[1]s
 
@@ -1578,9 +1840,6 @@ resource "pingone_application" "%[2]s-1" {
         enabled = false
       }
     }
-
-    bundle_id    = "com.%[2]s1.bundle"
-    package_name = "com.%[2]s1.package"
   }
 }
 
@@ -1589,7 +1848,7 @@ resource "pingone_mfa_application_push_credential" "%[2]s-1" {
   application_id = pingone_application.%[2]s-1.id
 
   fcm {
-    key = "dummykey"
+    google_service_account_credentials = jsonencode(%[4]s)
   }
 }
 
@@ -1619,11 +1878,13 @@ resource "pingone_application" "%[2]s-2" {
           amount = 30
           units  = "HOURS"
         }
+        google_play {
+          verification_type = "INTERNAL"
+          decryption_key    = "dummykeydoesnotexist"
+          verification_key  = "dummykeydoesnotexist"
+        }
       }
     }
-
-    bundle_id    = "com.%[2]s2.bundle"
-    package_name = "com.%[2]s2.package"
   }
 }
 
@@ -1653,17 +1914,64 @@ resource "pingone_application" "%[2]s-3" {
           amount = 30
           units  = "HOURS"
         }
+        google_play {
+          verification_type = "INTERNAL"
+          decryption_key    = "dummykeydoesnotexist"
+          verification_key  = "dummykeydoesnotexist"
+        }
       }
     }
-
-    bundle_id    = "com.%[2]s3.bundle"
-    package_name = "com.%[2]s3.package"
   }
 }
 
 resource "pingone_mfa_application_push_credential" "%[2]s-3" {
   environment_id = data.pingone_environment.general_test.id
   application_id = pingone_application.%[2]s-3.id
+
+  fcm {
+    google_service_account_credentials = jsonencode(%[4]s)
+  }
+}
+
+resource "pingone_application" "%[2]s-4" {
+  environment_id = data.pingone_environment.general_test.id
+  name           = "%[3]s-4"
+  description    = "My test OIDC app for MFA Policy"
+  tags           = []
+  login_page_url = "https://www.pingidentity.com"
+
+  enabled = true
+
+  oidc_options {
+    type                        = "NATIVE_APP"
+    grant_types                 = ["CLIENT_CREDENTIALS"]
+    token_endpoint_authn_method = "CLIENT_SECRET_BASIC"
+
+    mobile_app {
+      bundle_id    = "com.%[2]s4.bundle"
+      package_name = "com.%[2]s4.package"
+
+      passcode_refresh_seconds = 45
+
+      integrity_detection {
+        enabled = true
+        cache_duration {
+          amount = 30
+          units  = "HOURS"
+        }
+        google_play {
+          verification_type = "INTERNAL"
+          decryption_key    = "dummykeydoesnotexist"
+          verification_key  = "dummykeydoesnotexist"
+        }
+      }
+    }
+  }
+}
+
+resource "pingone_mfa_application_push_credential" "%[2]s-4" {
+  environment_id = data.pingone_environment.general_test.id
+  application_id = pingone_application.%[2]s-4.id
 
   fcm {
     key = "dummykey"
@@ -1673,6 +1981,8 @@ resource "pingone_mfa_application_push_credential" "%[2]s-3" {
 resource "pingone_mfa_policy" "%[2]s" {
   environment_id = data.pingone_environment.general_test.id
   name           = "%[3]s"
+
+  new_device_notification = "SMS_THEN_EMAIL"
 
   sms {
     enabled = false
@@ -1697,8 +2007,19 @@ resource "pingone_mfa_policy" "%[2]s" {
     application {
       id = pingone_application.%[2]s-1.id
 
+      pairing_disabled = true
+
       push_enabled          = true
       push_timeout_duration = 100
+
+      pairing_key_lifetime_duration = 3
+      pairing_key_lifetime_timeunit = "HOURS"
+
+      push_limit_count                  = 10
+      push_limit_lock_duration          = 260
+      push_limit_lock_duration_timeunit = "SECONDS"
+      push_limit_time_period_duration   = 300
+      push_limit_time_period_timeunit   = "SECONDS"
 
       otp_enabled = true
 
@@ -1710,6 +2031,8 @@ resource "pingone_mfa_policy" "%[2]s" {
 
     application {
       id = pingone_application.%[2]s-2.id
+
+      pairing_disabled = false
 
       push_enabled = false
       otp_enabled  = true
@@ -1723,6 +2046,11 @@ resource "pingone_mfa_policy" "%[2]s" {
       push_enabled = true
       otp_enabled  = true
 
+      pairing_key_lifetime_duration = 55
+
+      push_limit_lock_duration        = 25
+      push_limit_time_period_duration = 5
+
       device_authorization_enabled = false
 
       auto_enrollment_enabled = true
@@ -1735,11 +2063,7 @@ resource "pingone_mfa_policy" "%[2]s" {
     enabled = false
   }
 
-  security_key {
-    enabled = false
-  }
-
-  platform {
+  fido2 {
     enabled = false
   }
 
@@ -1748,7 +2072,7 @@ resource "pingone_mfa_policy" "%[2]s" {
     pingone_mfa_application_push_credential.%[2]s-3
   ]
 
-}`, acctest.GenericSandboxEnvironment(), resourceName, name)
+}`, acctest.GenericSandboxEnvironment(), resourceName, name, key)
 }
 
 func testAccMFAPolicyConfig_MobileIntegrityDetectionError_1(resourceName, name string) string {
@@ -1779,9 +2103,6 @@ resource "pingone_application" "%[2]s" {
         enabled = false
       }
     }
-
-    bundle_id    = "com.%[2]s.bundle"
-    package_name = "com.%[2]s.package"
   }
 }
 
@@ -1828,11 +2149,7 @@ resource "pingone_mfa_policy" "%[2]s" {
     enabled = false
   }
 
-  security_key {
-    enabled = false
-  }
-
-  platform {
+  fido2 {
     enabled = false
   }
 
@@ -1869,11 +2186,13 @@ resource "pingone_application" "%[2]s" {
           amount = 30
           units  = "HOURS"
         }
+        google_play {
+          verification_type = "INTERNAL"
+          decryption_key    = "dummykeydoesnotexist"
+          verification_key  = "dummykeydoesnotexist"
+        }
       }
     }
-
-    bundle_id    = "com.%[2]s.bundle"
-    package_name = "com.%[2]s.package"
   }
 }
 
@@ -1918,11 +2237,7 @@ resource "pingone_mfa_policy" "%[2]s" {
     enabled = false
   }
 
-  security_key {
-    enabled = false
-  }
-
-  platform {
+  fido2 {
     enabled = false
   }
 
@@ -1974,11 +2289,7 @@ resource "pingone_mfa_policy" "%[2]s" {
     enabled = false
   }
 
-  security_key {
-    enabled = false
-  }
-
-  platform {
+  fido2 {
     enabled = false
   }
 
@@ -2045,11 +2356,7 @@ resource "pingone_mfa_policy" "%[2]s" {
     enabled = false
   }
 
-  security_key {
-    enabled = false
-  }
-
-  platform {
+  fido2 {
     enabled = false
   }
 
@@ -2117,11 +2424,7 @@ resource "pingone_mfa_policy" "%[2]s" {
     enabled = false
   }
 
-  security_key {
-    enabled = false
-  }
-
-  platform {
+  fido2 {
     enabled = false
   }
 
@@ -2188,11 +2491,7 @@ resource "pingone_mfa_policy" "%[2]s" {
     enabled = false
   }
 
-  security_key {
-    enabled = false
-  }
-
-  platform {
+  fido2 {
     enabled = false
   }
 
@@ -2227,11 +2526,7 @@ resource "pingone_mfa_policy" "%[2]s" {
     enabled = false
   }
 
-  security_key {
-    enabled = false
-  }
-
-  platform {
+  fido2 {
     enabled = false
   }
 
@@ -2245,6 +2540,8 @@ func testAccMFAPolicyConfig_FullTotp(resourceName, name string) string {
 resource "pingone_mfa_policy" "%[2]s" {
   environment_id = data.pingone_environment.general_test.id
   name           = "%[3]s"
+
+  new_device_notification = "SMS_THEN_EMAIL"
 
   sms {
     enabled = false
@@ -2263,7 +2560,8 @@ resource "pingone_mfa_policy" "%[2]s" {
   }
 
   totp {
-    enabled = true
+    enabled          = true
+    pairing_disabled = true
 
     otp_failure_count = 5
 
@@ -2271,11 +2569,7 @@ resource "pingone_mfa_policy" "%[2]s" {
     otp_failure_cooldown_timeunit = "SECONDS"
   }
 
-  security_key {
-    enabled = false
-  }
-
-  platform {
+  fido2 {
     enabled = false
   }
 
@@ -2310,12 +2604,158 @@ resource "pingone_mfa_policy" "%[2]s" {
     enabled = true
   }
 
-  security_key {
+  fido2 {
     enabled = false
   }
 
-  platform {
+}`, acctest.GenericSandboxEnvironment(), resourceName, name)
+}
+
+func testAccMFAPolicyConfig_FullFIDO2(resourceName, name string) string {
+	return fmt.Sprintf(`
+		%[1]s
+
+resource "pingone_mfa_fido2_policy" "%[2]s" {
+  environment_id = data.pingone_environment.general_test.id
+  name           = "%[3]s"
+
+  attestation_requirements = "NONE"
+  authenticator_attachment = "PLATFORM"
+
+  backup_eligibility = {
+    allow                         = false
+    enforce_during_authentication = true
+  }
+
+  device_display_name = "fidoPolicy.deviceDisplayName02"
+
+  discoverable_credentials = "DISCOURAGED"
+
+  mds_authenticators_requirements = {
+    enforce_during_authentication = false
+    option                        = "NONE"
+  }
+
+  relying_party_id = "ping-devops.com"
+
+  user_display_name_attributes = {
+    attributes = [
+      {
+        name = "username"
+      }
+    ]
+  }
+
+  user_verification = {
+    enforce_during_authentication = false
+    option                        = "DISCOURAGED"
+  }
+}
+
+resource "pingone_mfa_policy" "%[2]s" {
+  environment_id = data.pingone_environment.general_test.id
+  name           = "%[3]s"
+
+  device_selection        = "PROMPT_TO_SELECT"
+  new_device_notification = "SMS_THEN_EMAIL"
+
+  sms {
     enabled = false
+  }
+
+  voice {
+    enabled = false
+  }
+
+  email {
+    enabled = false
+  }
+
+  mobile {
+    enabled = false
+  }
+
+  totp {
+    enabled = false
+  }
+
+  fido2 {
+    enabled          = true
+    pairing_disabled = true
+
+    fido2_policy_id = pingone_mfa_fido2_policy.%[2]s.id
+  }
+
+}`, acctest.GenericSandboxEnvironment(), resourceName, name)
+}
+
+func testAccMFAPolicyConfig_MinimalFIDO2(resourceName, name string) string {
+	return fmt.Sprintf(`
+		%[1]s
+
+resource "pingone_mfa_fido2_policy" "%[2]s" {
+  environment_id = data.pingone_environment.general_test.id
+  name           = "%[3]s"
+
+  attestation_requirements = "NONE"
+  authenticator_attachment = "PLATFORM"
+
+  backup_eligibility = {
+    allow                         = false
+    enforce_during_authentication = true
+  }
+
+  device_display_name = "fidoPolicy.deviceDisplayName02"
+
+  discoverable_credentials = "DISCOURAGED"
+
+  mds_authenticators_requirements = {
+    enforce_during_authentication = false
+    option                        = "NONE"
+  }
+
+  relying_party_id = "ping-devops.com"
+
+  user_display_name_attributes = {
+    attributes = [
+      {
+        name = "username"
+      }
+    ]
+  }
+
+  user_verification = {
+    enforce_during_authentication = false
+    option                        = "DISCOURAGED"
+  }
+}
+
+resource "pingone_mfa_policy" "%[2]s" {
+  environment_id = data.pingone_environment.general_test.id
+  name           = "%[3]s"
+
+  sms {
+    enabled = false
+  }
+
+  voice {
+    enabled = false
+  }
+
+  email {
+    enabled = false
+  }
+
+  mobile {
+    enabled = false
+  }
+
+  totp {
+    enabled = false
+  }
+
+  fido2 {
+    enabled = true
   }
 
 }`, acctest.GenericSandboxEnvironment(), resourceName, name)

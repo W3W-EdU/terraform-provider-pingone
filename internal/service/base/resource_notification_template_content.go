@@ -40,10 +40,10 @@ func ResourceNotificationTemplateContent() *schema.Resource {
 				ForceNew:         true,
 			},
 			"template_name": {
-				Description:      "The ID of the template to manage localised contents for.  Options are `email_verification_admin`, `email_verification_user`, `general`, `transaction`, `verification_code_template`, `recovery_code_template`, `device_pairing`, `strong_authentication`.",
+				Description:      "The ID of the template to manage localised contents for.  Options are `email_verification_admin`, `email_verification_user`, `general`, `transaction`, `verification_code_template`, `recovery_code_template`, `device_pairing`, `strong_authentication`, `email_phone_verification`, `id_verification`, `credential_issued`, `credential_updated`, `digital_wallet_pairing`, `credential_revoked`.",
 				Type:             schema.TypeString,
 				Required:         true,
-				ValidateDiagFunc: validation.ToDiagFunc(validation.StringInSlice([]string{"email_verification_admin", "email_verification_user", "general", "transaction", "verification_code_template", "recovery_code_template", "device_pairing", "strong_authentication"}, false)),
+				ValidateDiagFunc: validation.ToDiagFunc(validation.StringInSlice([]string{"email_verification_admin", "email_verification_user", "general", "transaction", "verification_code_template", "recovery_code_template", "device_pairing", "strong_authentication", "email_phone_verification", "id_verification", "credential_issued", "credential_updated", "digital_wallet_pairing", "credential_revoked"}, false)),
 				ForceNew:         true,
 			},
 			"locale": {
@@ -232,9 +232,7 @@ func ResourceNotificationTemplateContent() *schema.Resource {
 func resourceNotificationTemplateContentCreate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	p1Client := meta.(*client.Client)
 	apiClient := p1Client.API.ManagementAPIClient
-	ctx = context.WithValue(ctx, management.ContextServerVariables, map[string]string{
-		"suffix": p1Client.API.Region.URLSuffix,
-	})
+
 	var diags diag.Diagnostics
 
 	templateContent, diags := expandNotificationTemplateContent(d)
@@ -245,7 +243,7 @@ func resourceNotificationTemplateContentCreate(ctx context.Context, d *schema.Re
 	resp, diags := sdk.ParseResponse(
 		ctx,
 
-		func() (interface{}, *http.Response, error) {
+		func() (any, *http.Response, error) {
 			return apiClient.NotificationsTemplatesApi.CreateContent(ctx, d.Get("environment_id").(string), d.Get("template_name").(string)).TemplateContent(*templateContent).Execute()
 		},
 		"CreateContent",
@@ -281,15 +279,13 @@ func resourceNotificationTemplateContentCreate(ctx context.Context, d *schema.Re
 func resourceNotificationTemplateContentRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	p1Client := meta.(*client.Client)
 	apiClient := p1Client.API.ManagementAPIClient
-	ctx = context.WithValue(ctx, management.ContextServerVariables, map[string]string{
-		"suffix": p1Client.API.Region.URLSuffix,
-	})
+
 	var diags diag.Diagnostics
 
 	resp, diags := sdk.ParseResponse(
 		ctx,
 
-		func() (interface{}, *http.Response, error) {
+		func() (any, *http.Response, error) {
 			return apiClient.NotificationsTemplatesApi.ReadOneContent(ctx, d.Get("environment_id").(string), d.Get("template_name").(string), d.Id()).Execute()
 		},
 		"ReadOneContent",
@@ -398,9 +394,7 @@ func resourceNotificationTemplateContentRead(ctx context.Context, d *schema.Reso
 func resourceNotificationTemplateContentUpdate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	p1Client := meta.(*client.Client)
 	apiClient := p1Client.API.ManagementAPIClient
-	ctx = context.WithValue(ctx, management.ContextServerVariables, map[string]string{
-		"suffix": p1Client.API.Region.URLSuffix,
-	})
+
 	var diags diag.Diagnostics
 
 	templateContent, diags := expandNotificationTemplateContent(d)
@@ -411,12 +405,12 @@ func resourceNotificationTemplateContentUpdate(ctx context.Context, d *schema.Re
 	_, diags = sdk.ParseResponse(
 		ctx,
 
-		func() (interface{}, *http.Response, error) {
+		func() (any, *http.Response, error) {
 			return apiClient.NotificationsTemplatesApi.UpdateContent(ctx, d.Get("environment_id").(string), d.Get("template_name").(string), d.Id()).TemplateContent(*templateContent).Execute()
 		},
 		"UpdateContent",
 		notificationTemplateCustomWriteError,
-		sdk.DefaultRetryable,
+		nil,
 	)
 	if diags.HasError() {
 		return diags
@@ -428,21 +422,19 @@ func resourceNotificationTemplateContentUpdate(ctx context.Context, d *schema.Re
 func resourceNotificationTemplateContentDelete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	p1Client := meta.(*client.Client)
 	apiClient := p1Client.API.ManagementAPIClient
-	ctx = context.WithValue(ctx, management.ContextServerVariables, map[string]string{
-		"suffix": p1Client.API.Region.URLSuffix,
-	})
+
 	var diags diag.Diagnostics
 
 	_, diags = sdk.ParseResponse(
 		ctx,
 
-		func() (interface{}, *http.Response, error) {
+		func() (any, *http.Response, error) {
 			r, err := apiClient.NotificationsTemplatesApi.DeleteContent(ctx, d.Get("environment_id").(string), d.Get("template_name").(string), d.Id()).Execute()
 			return nil, r, err
 		},
 		"DeleteContent",
 		sdk.CustomErrorResourceNotFoundWarning,
-		sdk.DefaultRetryable,
+		nil,
 	)
 	if diags.HasError() {
 		return diags
@@ -524,7 +516,7 @@ func expandNotificationTemplateContent(d *schema.ResourceData) (*management.Temp
 		var templateContent *management.TemplateContentEmail
 		common := management.NewTemplateContentCommon(d.Get("locale").(string), management.ENUMTEMPLATECONTENTDELIVERYMETHOD_EMAIL)
 
-		if v1, ok := d.Get("variant").(string); ok {
+		if v1, ok := d.Get("variant").(string); ok && v1 != "" {
 			common.SetVariant(v1)
 		}
 
@@ -536,7 +528,7 @@ func expandNotificationTemplateContent(d *schema.ResourceData) (*management.Temp
 		var templateContent *management.TemplateContentPush
 		common := management.NewTemplateContentCommon(d.Get("locale").(string), management.ENUMTEMPLATECONTENTDELIVERYMETHOD_PUSH)
 
-		if v1, ok := d.Get("variant").(string); ok {
+		if v1, ok := d.Get("variant").(string); ok && v1 != "" {
 			common.SetVariant(v1)
 		}
 
@@ -548,7 +540,7 @@ func expandNotificationTemplateContent(d *schema.ResourceData) (*management.Temp
 		var templateContent *management.TemplateContentSMS
 		common := management.NewTemplateContentCommon(d.Get("locale").(string), management.ENUMTEMPLATECONTENTDELIVERYMETHOD_SMS)
 
-		if v1, ok := d.Get("variant").(string); ok {
+		if v1, ok := d.Get("variant").(string); ok && v1 != "" {
 			common.SetVariant(v1)
 		}
 
@@ -560,7 +552,7 @@ func expandNotificationTemplateContent(d *schema.ResourceData) (*management.Temp
 		var templateContent *management.TemplateContentVoice
 		common := management.NewTemplateContentCommon(d.Get("locale").(string), management.ENUMTEMPLATECONTENTDELIVERYMETHOD_VOICE)
 
-		if v1, ok := d.Get("variant").(string); ok {
+		if v1, ok := d.Get("variant").(string); ok && v1 != "" {
 			common.SetVariant(v1)
 		}
 
@@ -585,7 +577,7 @@ func expandNotificationTemplateContentEmail(d []interface{}, common *management.
 		templateContent = *management.NewTemplateContentEmail(common.GetLocale(), common.GetDeliveryMethod(), options["body"].(string))
 
 		// From common
-		if v1, ok := common.GetVariantOk(); ok {
+		if v1, ok := common.GetVariantOk(); ok && v1 != nil && *v1 != "" {
 			templateContent.SetVariant(*v1)
 		}
 

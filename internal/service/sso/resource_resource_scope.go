@@ -63,9 +63,7 @@ func ResourceResourceScope() *schema.Resource {
 func resourceResourceScopeCreate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	p1Client := meta.(*client.Client)
 	apiClient := p1Client.API.ManagementAPIClient
-	ctx = context.WithValue(ctx, management.ContextServerVariables, map[string]string{
-		"suffix": p1Client.API.Region.URLSuffix,
-	})
+
 	var diags diag.Diagnostics
 
 	diags = checkResourceType(ctx, apiClient, d.Get("environment_id").(string), d.Get("resource_id").(string))
@@ -78,7 +76,7 @@ func resourceResourceScopeCreate(ctx context.Context, d *schema.ResourceData, me
 	resp, diags := sdk.ParseResponse(
 		ctx,
 
-		func() (interface{}, *http.Response, error) {
+		func() (any, *http.Response, error) {
 			return apiClient.ResourceScopesApi.CreateResourceScope(ctx, d.Get("environment_id").(string), d.Get("resource_id").(string)).ResourceScope(*resourceScope).Execute()
 		},
 		"CreateResourceScope",
@@ -99,9 +97,7 @@ func resourceResourceScopeCreate(ctx context.Context, d *schema.ResourceData, me
 func resourceResourceScopeRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	p1Client := meta.(*client.Client)
 	apiClient := p1Client.API.ManagementAPIClient
-	ctx = context.WithValue(ctx, management.ContextServerVariables, map[string]string{
-		"suffix": p1Client.API.Region.URLSuffix,
-	})
+
 	var diags diag.Diagnostics
 
 	diags = checkResourceType(ctx, apiClient, d.Get("environment_id").(string), d.Get("resource_id").(string))
@@ -112,7 +108,7 @@ func resourceResourceScopeRead(ctx context.Context, d *schema.ResourceData, meta
 	resp, diags := sdk.ParseResponse(
 		ctx,
 
-		func() (interface{}, *http.Response, error) {
+		func() (any, *http.Response, error) {
 			return apiClient.ResourceScopesApi.ReadOneResourceScope(ctx, d.Get("environment_id").(string), d.Get("resource_id").(string), d.Id()).Execute()
 		},
 		"ReadOneResourceScope",
@@ -144,9 +140,7 @@ func resourceResourceScopeRead(ctx context.Context, d *schema.ResourceData, meta
 func resourceResourceScopeUpdate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	p1Client := meta.(*client.Client)
 	apiClient := p1Client.API.ManagementAPIClient
-	ctx = context.WithValue(ctx, management.ContextServerVariables, map[string]string{
-		"suffix": p1Client.API.Region.URLSuffix,
-	})
+
 	var diags diag.Diagnostics
 
 	diags = checkResourceType(ctx, apiClient, d.Get("environment_id").(string), d.Get("resource_id").(string))
@@ -159,12 +153,12 @@ func resourceResourceScopeUpdate(ctx context.Context, d *schema.ResourceData, me
 	_, diags = sdk.ParseResponse(
 		ctx,
 
-		func() (interface{}, *http.Response, error) {
+		func() (any, *http.Response, error) {
 			return apiClient.ResourceScopesApi.UpdateResourceScope(ctx, d.Get("environment_id").(string), d.Get("resource_id").(string), d.Id()).ResourceScope(*resourceScope).Execute()
 		},
 		"UpdateResourceScope",
 		sdk.DefaultCustomError,
-		sdk.DefaultRetryable,
+		nil,
 	)
 	if diags.HasError() {
 		return diags
@@ -176,9 +170,7 @@ func resourceResourceScopeUpdate(ctx context.Context, d *schema.ResourceData, me
 func resourceResourceScopeDelete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	p1Client := meta.(*client.Client)
 	apiClient := p1Client.API.ManagementAPIClient
-	ctx = context.WithValue(ctx, management.ContextServerVariables, map[string]string{
-		"suffix": p1Client.API.Region.URLSuffix,
-	})
+
 	var diags diag.Diagnostics
 
 	diags = checkResourceType(ctx, apiClient, d.Get("environment_id").(string), d.Get("resource_id").(string))
@@ -189,13 +181,13 @@ func resourceResourceScopeDelete(ctx context.Context, d *schema.ResourceData, me
 	_, diags = sdk.ParseResponse(
 		ctx,
 
-		func() (interface{}, *http.Response, error) {
+		func() (any, *http.Response, error) {
 			r, err := apiClient.ResourceScopesApi.DeleteResourceScope(ctx, d.Get("environment_id").(string), d.Get("resource_id").(string), d.Id()).Execute()
 			return nil, r, err
 		},
 		"DeleteResourceScope",
 		sdk.CustomErrorResourceNotFoundWarning,
-		sdk.DefaultRetryable,
+		nil,
 	)
 	if diags.HasError() {
 		return diags

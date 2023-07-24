@@ -40,16 +40,14 @@ func DatasourceRole() *schema.Resource {
 func datasourcePingOneRoleRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	p1Client := meta.(*client.Client)
 	apiClient := p1Client.API.ManagementAPIClient
-	ctx = context.WithValue(ctx, management.ContextServerVariables, map[string]string{
-		"suffix": p1Client.API.Region.URLSuffix,
-	})
+
 	var diags diag.Diagnostics
 
 	var resp management.Role
 
 	respList, diags := sdk.ParseResponse(
 		ctx,
-		func() (interface{}, *http.Response, error) {
+		func() (any, *http.Response, error) {
 			return apiClient.RolesApi.ReadAllRoles(ctx).Execute()
 		},
 		"ReadAllRoles",

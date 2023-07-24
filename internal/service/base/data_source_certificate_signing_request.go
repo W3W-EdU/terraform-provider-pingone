@@ -53,9 +53,7 @@ func DatasourceCertificateSigningRequest() *schema.Resource {
 func datasourcePingOneCertificateSigningRequestRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	p1Client := meta.(*client.Client)
 	apiClient := p1Client.API.ManagementAPIClient
-	ctx = context.WithValue(ctx, management.ContextServerVariables, map[string]string{
-		"suffix": p1Client.API.Region.URLSuffix,
-	})
+
 	var diags diag.Diagnostics
 
 	resp, diags := certificateSigningExport(ctx, apiClient, d.Get("environment_id").(string), d.Get("key_id").(string), management.ENUMCSREXPORTHEADER_PKCS10)
@@ -80,7 +78,7 @@ func certificateSigningExport(ctx context.Context, apiClient *management.APIClie
 	return sdk.ParseResponse(
 		ctx,
 
-		func() (interface{}, *http.Response, error) {
+		func() (any, *http.Response, error) {
 			return apiClient.CertificateManagementApi.ExportCSR(ctx, environmentID, keyID).Accept(exportFileType).Execute()
 		},
 		"ExportCSR",

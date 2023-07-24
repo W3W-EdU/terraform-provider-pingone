@@ -9,6 +9,8 @@ description: |-
 
 Resource to create and manage push credentials for a mobile MFA application configured in PingOne.
 
+~> If the type of credential is changed (e.g., FCM to APNS, or `fcm.key` to `fcm.google_service_account_credentials`), this will trigger a replacement plan.
+
 ## Example Usage
 
 ```terraform
@@ -16,27 +18,64 @@ resource "pingone_environment" "my_environment" {
   # ...
 }
 
-resource "pingone_application" "my_application" {
-  # ...
-}
-
-resource "pingone_mfa_application_push_credential" "example_fcm" {
+resource "pingone_application" "my_awesome_mobile_application" {
   environment_id = pingone_environment.my_environment.id
-  application_id = pingone_application.my_application.id
+  name           = "My Mobile App"
 
-  fcm {
-    key = var.fcm_key
+  enabled = true
+
+  oidc_options {
+    type                        = "NATIVE_APP"
+    grant_types                 = ["AUTHORIZATION_CODE"]
+    response_types              = ["CODE"]
+    token_endpoint_authn_method = "NONE"
+    pkce_enforcement            = "S256_REQUIRED"
+
+    mobile_app {
+
+      // Apple
+      bundle_id = "org.bxretail.mybundle"
+
+      // Android
+      package_name = "org.bxretail.mypackage"
+
+      // Huawei
+      huawei_app_id       = "12345679"
+      huawei_package_name = "org.bxretail.huaweipackage"
+    }
   }
 }
 
+// Android
+resource "pingone_mfa_application_push_credential" "example_fcm" {
+  environment_id = pingone_environment.my_environment.id
+  application_id = pingone_application.my_awesome_mobile_application.id
+
+  fcm {
+    google_service_account_credentials = var.google_service_account_credentials_json
+  }
+}
+
+// Apple
 resource "pingone_mfa_application_push_credential" "example_apns" {
   environment_id = pingone_environment.my_environment.id
-  application_id = pingone_application.my_application.id
+  application_id = pingone_application.my_awesome_mobile_application.id
 
   apns {
     key               = var.apns_key
     team_id           = var.apns_team_id
     token_signing_key = var.apns_token_signing_key
+  }
+}
+
+// Huawei
+resource "pingone_mfa_application_push_credential" "example_hms" {
+  environment_id = pingone_environment.my_environment.id
+  application_id = pingone_application.my_awesome_mobile_application.id
+
+  hms {
+    client_id     = var.hms_client_id
+    client_secret = var.hms_client_secret
   }
 }
 ```
@@ -46,13 +85,14 @@ resource "pingone_mfa_application_push_credential" "example_apns" {
 
 ### Required
 
-- `application_id` (String) The ID of the application to create the push notification credential for.
-- `environment_id` (String) The ID of the environment to create the application push notification credential in.
+- `application_id` (String) The ID of the application to create the push notification credential for.  Must be a valid PingOne resource ID.  This field is immutable and will trigger a replace plan if changed.
+- `environment_id` (String) The ID of the environment to create the application push notification credential in.  Must be a valid PingOne resource ID.  This field is immutable and will trigger a replace plan if changed.
 
 ### Optional
 
-- `apns` (Block List, Max: 1) A block that specifies the credential settings for the Apple Push Notification Service. (see [below for nested schema](#nestedblock--apns))
-- `fcm` (Block List, Max: 1) A block that specifies the credential settings for the Firebase Cloud Messaging service. (see [below for nested schema](#nestedblock--fcm))
+- `apns` (Block List) A single block that specifies the credential settings for the Apple Push Notification Service. (see [below for nested schema](#nestedblock--apns))
+- `fcm` (Block List) A single block that specifies the credential settings for the Firebase Cloud Messaging service. (see [below for nested schema](#nestedblock--fcm))
+- `hms` (Block List) A single block that specifies the credential settings for Huawei Moble Service push messaging. (see [below for nested schema](#nestedblock--hms))
 
 ### Read-Only
 
@@ -71,13 +111,23 @@ Required:
 <a id="nestedblock--fcm"></a>
 ### Nested Schema for `fcm`
 
+Optional:
+
+- `google_service_account_credentials` (String, Sensitive) A string in JSON format that represents the service account credentials of Firebase cloud messaging service.  At least one of the following must be defined: `key`, `google_service_account_credentials`.
+- `key` (String, Sensitive, Deprecated) A string that represents the server key of the Firebase cloud messaging service.  At least one of the following must be defined: `key`, `google_service_account_credentials`.
+
+
+<a id="nestedblock--hms"></a>
+### Nested Schema for `hms`
+
 Required:
 
-- `key` (String, Sensitive) A string that represents the server key of the Firebase cloud messaging service.
+- `client_id` (String, Sensitive) A string that represents the OAuth 2.0 Client ID from the Huawei Developers API console.
+- `client_secret` (String, Sensitive) A string that represents the client secret associated with the OAuth 2.0 Client ID.
 
 ## Import
 
-Import is supported using the following syntax:
+Import is supported using the following syntax, where attributes in `<>` brackets are replaced with the relevant ID.  For example, `<environment_id>` should be replaced with the ID of the environment to import from.
 
 ```shell
 $ terraform import pingone_mfa_application_push_credential.example <environment_id>/<application_id>/<push_credential_id>

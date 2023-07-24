@@ -204,9 +204,7 @@ func DatasourcePasswordPolicy() *schema.Resource {
 func datasourcePingOnePasswordPolicyRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	p1Client := meta.(*client.Client)
 	apiClient := p1Client.API.ManagementAPIClient
-	ctx = context.WithValue(ctx, management.ContextServerVariables, map[string]string{
-		"suffix": p1Client.API.Region.URLSuffix,
-	})
+
 	var diags diag.Diagnostics
 
 	var resp management.PasswordPolicy
@@ -216,7 +214,7 @@ func datasourcePingOnePasswordPolicyRead(ctx context.Context, d *schema.Resource
 		respList, diags := sdk.ParseResponse(
 			ctx,
 
-			func() (interface{}, *http.Response, error) {
+			func() (any, *http.Response, error) {
 				return apiClient.PasswordPoliciesApi.ReadAllPasswordPolicies(ctx, d.Get("environment_id").(string)).Execute()
 			},
 			"ReadAllPasswordPolicies",
@@ -255,7 +253,7 @@ func datasourcePingOnePasswordPolicyRead(ctx context.Context, d *schema.Resource
 		passwordPolicyResp, diags := sdk.ParseResponse(
 			ctx,
 
-			func() (interface{}, *http.Response, error) {
+			func() (any, *http.Response, error) {
 				return apiClient.PasswordPoliciesApi.ReadOnePasswordPolicy(ctx, d.Get("environment_id").(string), v.(string)).Execute()
 			},
 			"ReadOnePasswordPolicy",

@@ -80,9 +80,7 @@ func ResourceDecisionEndpoint() *schema.Resource {
 func resourceDecisionEndpointCreate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	p1Client := meta.(*client.Client)
 	apiClient := p1Client.API.AuthorizeAPIClient
-	ctx = context.WithValue(ctx, authorize.ContextServerVariables, map[string]string{
-		"suffix": p1Client.API.Region.URLSuffix,
-	})
+
 	var diags diag.Diagnostics
 
 	decisionEndpoint := *authorize.NewDecisionEndpoint(d.Get("description").(string), d.Get("name").(string), d.Get("record_recent_requests").(bool)) // DecisionEndpoint |  (optional)
@@ -101,7 +99,7 @@ func resourceDecisionEndpointCreate(ctx context.Context, d *schema.ResourceData,
 	resp, diags := sdk.ParseResponse(
 		ctx,
 
-		func() (interface{}, *http.Response, error) {
+		func() (any, *http.Response, error) {
 			return apiClient.PolicyDecisionManagementApi.CreateDecisionEndpoint(ctx, d.Get("environment_id").(string)).DecisionEndpoint(decisionEndpoint).Execute()
 		},
 		"CreateDecisionEndpoint",
@@ -122,15 +120,13 @@ func resourceDecisionEndpointCreate(ctx context.Context, d *schema.ResourceData,
 func resourceDecisionEndpointRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	p1Client := meta.(*client.Client)
 	apiClient := p1Client.API.AuthorizeAPIClient
-	ctx = context.WithValue(ctx, authorize.ContextServerVariables, map[string]string{
-		"suffix": p1Client.API.Region.URLSuffix,
-	})
+
 	var diags diag.Diagnostics
 
 	resp, diags := sdk.ParseResponse(
 		ctx,
 
-		func() (interface{}, *http.Response, error) {
+		func() (any, *http.Response, error) {
 			return apiClient.PolicyDecisionManagementApi.ReadOneDecisionEndpoint(ctx, d.Get("environment_id").(string), d.Id()).Execute()
 		},
 		"ReadOneDecisionEndpoint",
@@ -186,9 +182,7 @@ func resourceDecisionEndpointRead(ctx context.Context, d *schema.ResourceData, m
 func resourceDecisionEndpointUpdate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	p1Client := meta.(*client.Client)
 	apiClient := p1Client.API.AuthorizeAPIClient
-	ctx = context.WithValue(ctx, authorize.ContextServerVariables, map[string]string{
-		"suffix": p1Client.API.Region.URLSuffix,
-	})
+
 	var diags diag.Diagnostics
 
 	decisionEndpoint := *authorize.NewDecisionEndpoint(d.Get("description").(string), d.Get("name").(string), d.Get("record_recent_requests").(bool)) // DecisionEndpoint |  (optional)
@@ -207,12 +201,12 @@ func resourceDecisionEndpointUpdate(ctx context.Context, d *schema.ResourceData,
 	_, diags = sdk.ParseResponse(
 		ctx,
 
-		func() (interface{}, *http.Response, error) {
+		func() (any, *http.Response, error) {
 			return apiClient.PolicyDecisionManagementApi.UpdateDecisionEndpoint(ctx, d.Get("environment_id").(string), d.Id()).DecisionEndpoint(decisionEndpoint).Execute()
 		},
 		"UpdateDecisionEndpoint",
 		sdk.DefaultCustomError,
-		sdk.DefaultRetryable,
+		nil,
 	)
 	if diags.HasError() {
 		return diags
@@ -224,21 +218,19 @@ func resourceDecisionEndpointUpdate(ctx context.Context, d *schema.ResourceData,
 func resourceDecisionEndpointDelete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	p1Client := meta.(*client.Client)
 	apiClient := p1Client.API.AuthorizeAPIClient
-	ctx = context.WithValue(ctx, authorize.ContextServerVariables, map[string]string{
-		"suffix": p1Client.API.Region.URLSuffix,
-	})
+
 	var diags diag.Diagnostics
 
 	_, diags = sdk.ParseResponse(
 		ctx,
 
-		func() (interface{}, *http.Response, error) {
+		func() (any, *http.Response, error) {
 			r, err := apiClient.PolicyDecisionManagementApi.DeleteDecisionEndpoint(ctx, d.Get("environment_id").(string), d.Id()).Execute()
 			return nil, r, err
 		},
 		"DeleteDecisionEndpoint",
 		sdk.CustomErrorResourceNotFoundWarning,
-		sdk.DefaultRetryable,
+		nil,
 	)
 	if diags.HasError() {
 		return diags

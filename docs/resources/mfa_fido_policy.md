@@ -9,6 +9,10 @@ description: |-
 
 Resource to create and manage MFA FIDO Policies in a PingOne Environment.
 
+!> This resource is deprecated, please use the `pingone_mfa_fido2_policy` resource going forward.  This resource is no longer configurable for environments created after 19th June 2023, nor environments that have been upgraded to use the latest FIDO2 policies. Existing environments that were created before 19th June 2023 and have not been upgraded can continue to use this resource to facilitate migration.
+
+~> See [Upgrade MFA Policies for FIDO2 with Passkeys](../guides/upgrade-mfa-policy-for-fido2.md) for the procedure to migrate an environment to use upgraded FIDO2 policies.
+
 ## Example Usage
 
 ```terraform
@@ -50,7 +54,7 @@ resource "pingone_mfa_fido_policy" "my_awesome_fido_policy" {
 
 ## Import
 
-Import is supported using the following syntax:
+Import is supported using the following syntax, where attributes in `<>` brackets are replaced with the relevant ID.  For example, `<environment_id>` should be replaced with the ID of the environment to import from.
 
 ```shell
 $ terraform import pingone_mfa_fido_policy.example <environment_id>/<mfa_fido_policy_id>

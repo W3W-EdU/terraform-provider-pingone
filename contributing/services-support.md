@@ -10,10 +10,10 @@ The following describes the support of each of these services.
 | PingOne SSO         | sso           |    :large_orange_diamond:     | Upcoming v1.0.0 |
 | PingOne DaVinci     | davinci       |    :x:     |  TBC  |
 | PingOne MFA         | mfa           |    :large_orange_diamond:     | Upcoming v1.0.0 |
-| PingOne Risk        | risk          |    :x:     |  TBC  |
+| PingOne Risk        | risk          |    :large_orange_diamond:     | Upcoming v1.0.0 |
 | PingOne Authorize   | authorize     |    :large_orange_diamond:     | Upcoming v1.0.0 |
 | PingOne Verify      | verify        |    :x:     |  TBC  |
-| PingOne Credentials | credentials   |    :x:     |  TBC  |
+| PingOne Credentials | credentials   |    :large_orange_diamond:     | Upcoming v1.0.0 |
 
 Key:
 * :white_check_mark: - Supported / Released

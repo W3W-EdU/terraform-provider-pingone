@@ -73,9 +73,7 @@ func DatasourceLicenses() *schema.Resource {
 func datasourcePingOneLicensesRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	p1Client := meta.(*client.Client)
 	apiClient := p1Client.API.ManagementAPIClient
-	ctx = context.WithValue(ctx, management.ContextServerVariables, map[string]string{
-		"suffix": p1Client.API.Region.URLSuffix,
-	})
+
 	var diags diag.Diagnostics
 
 	var filterFunction sdk.SDKInterfaceFunc
@@ -87,7 +85,7 @@ func datasourcePingOneLicensesRead(ctx context.Context, d *schema.ResourceData, 
 
 	if v, ok := d.GetOk("scim_filter"); ok {
 
-		filterFunction = func() (interface{}, *http.Response, error) {
+		filterFunction = func() (any, *http.Response, error) {
 			return apiClient.LicensesApi.ReadAllLicenses(ctx, organizationId).Filter(v.(string)).Execute()
 		}
 
@@ -95,7 +93,7 @@ func datasourcePingOneLicensesRead(ctx context.Context, d *schema.ResourceData, 
 
 	if _, ok := d.GetOk("data_filter"); ok {
 
-		filterFunction = func() (interface{}, *http.Response, error) {
+		filterFunction = func() (any, *http.Response, error) {
 			return apiClient.LicensesApi.ReadAllLicenses(ctx, organizationId).Execute()
 		}
 
@@ -106,7 +104,7 @@ func datasourcePingOneLicensesRead(ctx context.Context, d *schema.ResourceData, 
 		filterFunction,
 		"ReadAllLicenses",
 		sdk.DefaultCustomError,
-		sdk.DefaultRetryable,
+		nil,
 	)
 	if diags.HasError() {
 		return diags

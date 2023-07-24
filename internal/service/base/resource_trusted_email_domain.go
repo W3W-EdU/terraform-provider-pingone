@@ -51,9 +51,7 @@ func ResourceTrustedEmailDomain() *schema.Resource {
 func resourceTrustedEmailDomainCreate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	p1Client := meta.(*client.Client)
 	apiClient := p1Client.API.ManagementAPIClient
-	ctx = context.WithValue(ctx, management.ContextServerVariables, map[string]string{
-		"suffix": p1Client.API.Region.URLSuffix,
-	})
+
 	var diags diag.Diagnostics
 
 	var resp interface{}
@@ -63,7 +61,7 @@ func resourceTrustedEmailDomainCreate(ctx context.Context, d *schema.ResourceDat
 	resp, diags = sdk.ParseResponse(
 		ctx,
 
-		func() (interface{}, *http.Response, error) {
+		func() (any, *http.Response, error) {
 			return apiClient.TrustedEmailDomainsApi.CreateTrustedEmailDomain(ctx, d.Get("environment_id").(string)).EmailDomain(emailDomain).Execute()
 		},
 		"CreateTrustedEmailDomain",
@@ -84,15 +82,13 @@ func resourceTrustedEmailDomainCreate(ctx context.Context, d *schema.ResourceDat
 func resourceTrustedEmailDomainRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	p1Client := meta.(*client.Client)
 	apiClient := p1Client.API.ManagementAPIClient
-	ctx = context.WithValue(ctx, management.ContextServerVariables, map[string]string{
-		"suffix": p1Client.API.Region.URLSuffix,
-	})
+
 	var diags diag.Diagnostics
 
 	resp, diags := sdk.ParseResponse(
 		ctx,
 
-		func() (interface{}, *http.Response, error) {
+		func() (any, *http.Response, error) {
 			return apiClient.TrustedEmailDomainsApi.ReadOneTrustedEmailDomain(ctx, d.Get("environment_id").(string), d.Id()).Execute()
 		},
 		"ReadOneTrustedEmailDomain",
@@ -118,21 +114,19 @@ func resourceTrustedEmailDomainRead(ctx context.Context, d *schema.ResourceData,
 func resourceTrustedEmailDomainDelete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	p1Client := meta.(*client.Client)
 	apiClient := p1Client.API.ManagementAPIClient
-	ctx = context.WithValue(ctx, management.ContextServerVariables, map[string]string{
-		"suffix": p1Client.API.Region.URLSuffix,
-	})
+
 	var diags diag.Diagnostics
 
 	_, diags = sdk.ParseResponse(
 		ctx,
 
-		func() (interface{}, *http.Response, error) {
+		func() (any, *http.Response, error) {
 			r, err := apiClient.TrustedEmailDomainsApi.DeleteTrustedEmailDomain(ctx, d.Get("environment_id").(string), d.Id()).Execute()
 			return nil, r, err
 		},
 		"DeleteTrustedEmailDomain",
 		sdk.CustomErrorResourceNotFoundWarning,
-		sdk.DefaultRetryable,
+		nil,
 	)
 	if diags.HasError() {
 		return diags

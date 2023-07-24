@@ -16,11 +16,11 @@ resource "pingone_environment" "my_environment" {
   # ...
 }
 
-resource "pingone_group" "my_group" {
+resource "pingone_group" "my_awesome_group" {
   environment_id = pingone_environment.my_environment.id
 
-  name        = "My group"
-  description = "My new group"
+  name        = "My awesome group"
+  description = "My new awesome group for people who are awesome"
 }
 ```
 
@@ -45,7 +45,7 @@ resource "pingone_group" "my_group" {
 
 ## Import
 
-Import is supported using the following syntax:
+Import is supported using the following syntax, where attributes in `<>` brackets are replaced with the relevant ID.  For example, `<environment_id>` should be replaced with the ID of the environment to import from.
 
 ```shell
 $ terraform import pingone_group.example <environment_id>/<group_id>

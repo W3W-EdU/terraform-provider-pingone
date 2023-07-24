@@ -12,8 +12,8 @@ import (
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/terraform"
-	"github.com/patrickcping/pingone-go-sdk-v2/management"
 	"github.com/pingidentity/terraform-provider-pingone/internal/acctest"
+	"github.com/pingidentity/terraform-provider-pingone/internal/verify"
 )
 
 func testAccCheckIdentityProviderDestroy(s *terraform.State) error {
@@ -26,9 +26,6 @@ func testAccCheckIdentityProviderDestroy(s *terraform.State) error {
 	}
 
 	apiClient := p1Client.API.ManagementAPIClient
-	ctx = context.WithValue(ctx, management.ContextServerVariables, map[string]string{
-		"suffix": p1Client.API.Region.URLSuffix,
-	})
 
 	for _, rs := range s.RootModule().Resources {
 		if rs.Type != "pingone_identity_provider" {
@@ -85,10 +82,10 @@ func TestAccIdentityProvider_NewEnv(t *testing.T) {
 	licenseID := os.Getenv("PINGONE_LICENSE_ID")
 
 	resource.Test(t, resource.TestCase{
-		PreCheck:          func() { acctest.PreCheckEnvironment(t) },
-		ProviderFactories: acctest.ProviderFactories,
-		CheckDestroy:      testAccCheckIdentityProviderDestroy,
-		ErrorCheck:        acctest.ErrorCheck(t),
+		PreCheck:                 func() { acctest.PreCheckEnvironment(t) },
+		ProtoV6ProviderFactories: acctest.ProtoV6ProviderFactories,
+		CheckDestroy:             testAccCheckIdentityProviderDestroy,
+		ErrorCheck:               acctest.ErrorCheck(t),
 		Steps: []resource.TestStep{
 			{
 				Config: testAccIdentityProviderConfig_NewEnv(environmentName, licenseID, resourceName, name),
@@ -112,25 +109,25 @@ func TestAccIdentityProvider_Full(t *testing.T) {
 	image := base64.StdEncoding.EncodeToString(data)
 
 	resource.Test(t, resource.TestCase{
-		PreCheck:          func() { acctest.PreCheckEnvironment(t) },
-		ProviderFactories: acctest.ProviderFactories,
-		CheckDestroy:      testAccCheckIdentityProviderDestroy,
-		ErrorCheck:        acctest.ErrorCheck(t),
+		PreCheck:                 func() { acctest.PreCheckEnvironment(t) },
+		ProtoV6ProviderFactories: acctest.ProtoV6ProviderFactories,
+		CheckDestroy:             testAccCheckIdentityProviderDestroy,
+		ErrorCheck:               acctest.ErrorCheck(t),
 		Steps: []resource.TestStep{
 			{
 				Config: testAccIdentityProviderConfig_Full(resourceName, name, image),
 				Check: resource.ComposeTestCheckFunc(
-					resource.TestMatchResourceAttr(resourceFullName, "id", regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)),
-					resource.TestMatchResourceAttr(resourceFullName, "environment_id", regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)),
+					resource.TestMatchResourceAttr(resourceFullName, "id", verify.P1ResourceIDRegexp),
+					resource.TestMatchResourceAttr(resourceFullName, "environment_id", verify.P1ResourceIDRegexp),
 					resource.TestCheckResourceAttr(resourceFullName, "name", name),
 					resource.TestCheckResourceAttr(resourceFullName, "description", "My test identity provider"),
 					resource.TestCheckResourceAttr(resourceFullName, "enabled", "true"),
-					resource.TestMatchResourceAttr(resourceFullName, "registration_population_id", regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)),
+					resource.TestMatchResourceAttr(resourceFullName, "registration_population_id", verify.P1ResourceIDRegexp),
 					resource.TestCheckResourceAttr(resourceFullName, "login_button_icon.#", "1"),
-					resource.TestMatchResourceAttr(resourceFullName, "login_button_icon.0.id", regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)),
+					resource.TestMatchResourceAttr(resourceFullName, "login_button_icon.0.id", verify.P1ResourceIDRegexp),
 					resource.TestMatchResourceAttr(resourceFullName, "login_button_icon.0.href", regexp.MustCompile(`^https:\/\/uploads\.pingone\.((eu)|(com)|(asia)|(ca))\/environments\/[a-zA-Z0-9-]*\/images\/[a-zA-Z0-9-]*_[a-zA-Z0-9-]*_original\.png$`)),
 					resource.TestCheckResourceAttr(resourceFullName, "icon.#", "1"),
-					resource.TestMatchResourceAttr(resourceFullName, "icon.0.id", regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)),
+					resource.TestMatchResourceAttr(resourceFullName, "icon.0.id", verify.P1ResourceIDRegexp),
 					resource.TestMatchResourceAttr(resourceFullName, "icon.0.href", regexp.MustCompile(`^https:\/\/uploads\.pingone\.((eu)|(com)|(asia)|(ca))\/environments\/[a-zA-Z0-9-]*\/images\/[a-zA-Z0-9-]*_[a-zA-Z0-9-]*_original\.png$`)),
 				),
 			},
@@ -147,16 +144,16 @@ func TestAccIdentityProvider_Minimal(t *testing.T) {
 	name := resourceName
 
 	resource.Test(t, resource.TestCase{
-		PreCheck:          func() { acctest.PreCheckEnvironment(t) },
-		ProviderFactories: acctest.ProviderFactories,
-		CheckDestroy:      testAccCheckIdentityProviderDestroy,
-		ErrorCheck:        acctest.ErrorCheck(t),
+		PreCheck:                 func() { acctest.PreCheckEnvironment(t) },
+		ProtoV6ProviderFactories: acctest.ProtoV6ProviderFactories,
+		CheckDestroy:             testAccCheckIdentityProviderDestroy,
+		ErrorCheck:               acctest.ErrorCheck(t),
 		Steps: []resource.TestStep{
 			{
 				Config: testAccIdentityProviderConfig_Minimal(resourceName, name),
 				Check: resource.ComposeTestCheckFunc(
-					resource.TestMatchResourceAttr(resourceFullName, "id", regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)),
-					resource.TestMatchResourceAttr(resourceFullName, "environment_id", regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)),
+					resource.TestMatchResourceAttr(resourceFullName, "id", verify.P1ResourceIDRegexp),
+					resource.TestMatchResourceAttr(resourceFullName, "environment_id", verify.P1ResourceIDRegexp),
 					resource.TestCheckResourceAttr(resourceFullName, "name", name),
 					resource.TestCheckResourceAttr(resourceFullName, "description", ""),
 					resource.TestCheckResourceAttr(resourceFullName, "enabled", "false"),
@@ -181,33 +178,33 @@ func TestAccIdentityProvider_Change(t *testing.T) {
 	image := base64.StdEncoding.EncodeToString(data)
 
 	resource.Test(t, resource.TestCase{
-		PreCheck:          func() { acctest.PreCheckEnvironment(t) },
-		ProviderFactories: acctest.ProviderFactories,
-		CheckDestroy:      testAccCheckIdentityProviderDestroy,
-		ErrorCheck:        acctest.ErrorCheck(t),
+		PreCheck:                 func() { acctest.PreCheckEnvironment(t) },
+		ProtoV6ProviderFactories: acctest.ProtoV6ProviderFactories,
+		CheckDestroy:             testAccCheckIdentityProviderDestroy,
+		ErrorCheck:               acctest.ErrorCheck(t),
 		Steps: []resource.TestStep{
 			{
 				Config: testAccIdentityProviderConfig_Full(resourceName, fmt.Sprintf("%s 1", name), image),
 				Check: resource.ComposeTestCheckFunc(
-					resource.TestMatchResourceAttr(resourceFullName, "id", regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)),
-					resource.TestMatchResourceAttr(resourceFullName, "environment_id", regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)),
+					resource.TestMatchResourceAttr(resourceFullName, "id", verify.P1ResourceIDRegexp),
+					resource.TestMatchResourceAttr(resourceFullName, "environment_id", verify.P1ResourceIDRegexp),
 					resource.TestCheckResourceAttr(resourceFullName, "name", fmt.Sprintf("%s 1", name)),
 					resource.TestCheckResourceAttr(resourceFullName, "description", "My test identity provider"),
 					resource.TestCheckResourceAttr(resourceFullName, "enabled", "true"),
-					resource.TestMatchResourceAttr(resourceFullName, "registration_population_id", regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)),
+					resource.TestMatchResourceAttr(resourceFullName, "registration_population_id", verify.P1ResourceIDRegexp),
 					resource.TestCheckResourceAttr(resourceFullName, "login_button_icon.#", "1"),
-					resource.TestMatchResourceAttr(resourceFullName, "login_button_icon.0.id", regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)),
+					resource.TestMatchResourceAttr(resourceFullName, "login_button_icon.0.id", verify.P1ResourceIDRegexp),
 					resource.TestMatchResourceAttr(resourceFullName, "login_button_icon.0.href", regexp.MustCompile(`^https:\/\/uploads\.pingone\.((eu)|(com)|(asia)|(ca))\/environments\/[a-zA-Z0-9-]*\/images\/[a-zA-Z0-9-]*_[a-zA-Z0-9-]*_original\.png$`)),
 					resource.TestCheckResourceAttr(resourceFullName, "icon.#", "1"),
-					resource.TestMatchResourceAttr(resourceFullName, "icon.0.id", regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)),
+					resource.TestMatchResourceAttr(resourceFullName, "icon.0.id", verify.P1ResourceIDRegexp),
 					resource.TestMatchResourceAttr(resourceFullName, "icon.0.href", regexp.MustCompile(`^https:\/\/uploads\.pingone\.((eu)|(com)|(asia)|(ca))\/environments\/[a-zA-Z0-9-]*\/images\/[a-zA-Z0-9-]*_[a-zA-Z0-9-]*_original\.png$`)),
 				),
 			},
 			{
 				Config: testAccIdentityProviderConfig_Minimal(resourceName, fmt.Sprintf("%s 2", name)),
 				Check: resource.ComposeTestCheckFunc(
-					resource.TestMatchResourceAttr(resourceFullName, "id", regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)),
-					resource.TestMatchResourceAttr(resourceFullName, "environment_id", regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)),
+					resource.TestMatchResourceAttr(resourceFullName, "id", verify.P1ResourceIDRegexp),
+					resource.TestMatchResourceAttr(resourceFullName, "environment_id", verify.P1ResourceIDRegexp),
 					resource.TestCheckResourceAttr(resourceFullName, "name", fmt.Sprintf("%s 2", name)),
 					resource.TestCheckResourceAttr(resourceFullName, "description", ""),
 					resource.TestCheckResourceAttr(resourceFullName, "enabled", "false"),
@@ -219,17 +216,17 @@ func TestAccIdentityProvider_Change(t *testing.T) {
 			{
 				Config: testAccIdentityProviderConfig_Full(resourceName, fmt.Sprintf("%s 1", name), image),
 				Check: resource.ComposeTestCheckFunc(
-					resource.TestMatchResourceAttr(resourceFullName, "id", regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)),
-					resource.TestMatchResourceAttr(resourceFullName, "environment_id", regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)),
+					resource.TestMatchResourceAttr(resourceFullName, "id", verify.P1ResourceIDRegexp),
+					resource.TestMatchResourceAttr(resourceFullName, "environment_id", verify.P1ResourceIDRegexp),
 					resource.TestCheckResourceAttr(resourceFullName, "name", fmt.Sprintf("%s 1", name)),
 					resource.TestCheckResourceAttr(resourceFullName, "description", "My test identity provider"),
 					resource.TestCheckResourceAttr(resourceFullName, "enabled", "true"),
-					resource.TestMatchResourceAttr(resourceFullName, "registration_population_id", regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)),
+					resource.TestMatchResourceAttr(resourceFullName, "registration_population_id", verify.P1ResourceIDRegexp),
 					resource.TestCheckResourceAttr(resourceFullName, "login_button_icon.#", "1"),
-					resource.TestMatchResourceAttr(resourceFullName, "login_button_icon.0.id", regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)),
+					resource.TestMatchResourceAttr(resourceFullName, "login_button_icon.0.id", verify.P1ResourceIDRegexp),
 					resource.TestMatchResourceAttr(resourceFullName, "login_button_icon.0.href", regexp.MustCompile(`^https:\/\/uploads\.pingone\.((eu)|(com)|(asia)|(ca))\/environments\/[a-zA-Z0-9-]*\/images\/[a-zA-Z0-9-]*_[a-zA-Z0-9-]*_original\.png$`)),
 					resource.TestCheckResourceAttr(resourceFullName, "icon.#", "1"),
-					resource.TestMatchResourceAttr(resourceFullName, "icon.0.id", regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)),
+					resource.TestMatchResourceAttr(resourceFullName, "icon.0.id", verify.P1ResourceIDRegexp),
 					resource.TestMatchResourceAttr(resourceFullName, "icon.0.href", regexp.MustCompile(`^https:\/\/uploads\.pingone\.((eu)|(com)|(asia)|(ca))\/environments\/[a-zA-Z0-9-]*\/images\/[a-zA-Z0-9-]*_[a-zA-Z0-9-]*_original\.png$`)),
 				),
 			},
@@ -246,10 +243,10 @@ func TestAccIdentityProvider_Facebook(t *testing.T) {
 	name := resourceName
 
 	resource.Test(t, resource.TestCase{
-		PreCheck:          func() { acctest.PreCheckEnvironment(t) },
-		ProviderFactories: acctest.ProviderFactories,
-		CheckDestroy:      testAccCheckIdentityProviderDestroy,
-		ErrorCheck:        acctest.ErrorCheck(t),
+		PreCheck:                 func() { acctest.PreCheckEnvironment(t) },
+		ProtoV6ProviderFactories: acctest.ProtoV6ProviderFactories,
+		CheckDestroy:             testAccCheckIdentityProviderDestroy,
+		ErrorCheck:               acctest.ErrorCheck(t),
 		Steps: []resource.TestStep{
 			{
 				Config: testAccIdentityProviderConfig_Facebook1(resourceName, name),
@@ -304,10 +301,10 @@ func TestAccIdentityProvider_Google(t *testing.T) {
 	name := resourceName
 
 	resource.Test(t, resource.TestCase{
-		PreCheck:          func() { acctest.PreCheckEnvironment(t) },
-		ProviderFactories: acctest.ProviderFactories,
-		CheckDestroy:      testAccCheckIdentityProviderDestroy,
-		ErrorCheck:        acctest.ErrorCheck(t),
+		PreCheck:                 func() { acctest.PreCheckEnvironment(t) },
+		ProtoV6ProviderFactories: acctest.ProtoV6ProviderFactories,
+		CheckDestroy:             testAccCheckIdentityProviderDestroy,
+		ErrorCheck:               acctest.ErrorCheck(t),
 		Steps: []resource.TestStep{
 			{
 				Config: testAccIdentityProviderConfig_Google1(resourceName, name),
@@ -362,10 +359,10 @@ func TestAccIdentityProvider_LinkedIn(t *testing.T) {
 	name := resourceName
 
 	resource.Test(t, resource.TestCase{
-		PreCheck:          func() { acctest.PreCheckEnvironment(t) },
-		ProviderFactories: acctest.ProviderFactories,
-		CheckDestroy:      testAccCheckIdentityProviderDestroy,
-		ErrorCheck:        acctest.ErrorCheck(t),
+		PreCheck:                 func() { acctest.PreCheckEnvironment(t) },
+		ProtoV6ProviderFactories: acctest.ProtoV6ProviderFactories,
+		CheckDestroy:             testAccCheckIdentityProviderDestroy,
+		ErrorCheck:               acctest.ErrorCheck(t),
 		Steps: []resource.TestStep{
 			{
 				Config: testAccIdentityProviderConfig_LinkedIn1(resourceName, name),
@@ -420,10 +417,10 @@ func TestAccIdentityProvider_Yahoo(t *testing.T) {
 	name := resourceName
 
 	resource.Test(t, resource.TestCase{
-		PreCheck:          func() { acctest.PreCheckEnvironment(t) },
-		ProviderFactories: acctest.ProviderFactories,
-		CheckDestroy:      testAccCheckIdentityProviderDestroy,
-		ErrorCheck:        acctest.ErrorCheck(t),
+		PreCheck:                 func() { acctest.PreCheckEnvironment(t) },
+		ProtoV6ProviderFactories: acctest.ProtoV6ProviderFactories,
+		CheckDestroy:             testAccCheckIdentityProviderDestroy,
+		ErrorCheck:               acctest.ErrorCheck(t),
 		Steps: []resource.TestStep{
 			{
 				Config: testAccIdentityProviderConfig_Yahoo1(resourceName, name),
@@ -478,10 +475,10 @@ func TestAccIdentityProvider_Amazon(t *testing.T) {
 	name := resourceName
 
 	resource.Test(t, resource.TestCase{
-		PreCheck:          func() { acctest.PreCheckEnvironment(t) },
-		ProviderFactories: acctest.ProviderFactories,
-		CheckDestroy:      testAccCheckIdentityProviderDestroy,
-		ErrorCheck:        acctest.ErrorCheck(t),
+		PreCheck:                 func() { acctest.PreCheckEnvironment(t) },
+		ProtoV6ProviderFactories: acctest.ProtoV6ProviderFactories,
+		CheckDestroy:             testAccCheckIdentityProviderDestroy,
+		ErrorCheck:               acctest.ErrorCheck(t),
 		Steps: []resource.TestStep{
 			{
 				Config: testAccIdentityProviderConfig_Amazon1(resourceName, name),
@@ -536,10 +533,10 @@ func TestAccIdentityProvider_Twitter(t *testing.T) {
 	name := resourceName
 
 	resource.Test(t, resource.TestCase{
-		PreCheck:          func() { acctest.PreCheckEnvironment(t) },
-		ProviderFactories: acctest.ProviderFactories,
-		CheckDestroy:      testAccCheckIdentityProviderDestroy,
-		ErrorCheck:        acctest.ErrorCheck(t),
+		PreCheck:                 func() { acctest.PreCheckEnvironment(t) },
+		ProtoV6ProviderFactories: acctest.ProtoV6ProviderFactories,
+		CheckDestroy:             testAccCheckIdentityProviderDestroy,
+		ErrorCheck:               acctest.ErrorCheck(t),
 		Steps: []resource.TestStep{
 			{
 				Config: testAccIdentityProviderConfig_Twitter1(resourceName, name),
@@ -594,10 +591,10 @@ func TestAccIdentityProvider_Apple(t *testing.T) {
 	name := resourceName
 
 	resource.Test(t, resource.TestCase{
-		PreCheck:          func() { acctest.PreCheckEnvironment(t) },
-		ProviderFactories: acctest.ProviderFactories,
-		CheckDestroy:      testAccCheckIdentityProviderDestroy,
-		ErrorCheck:        acctest.ErrorCheck(t),
+		PreCheck:                 func() { acctest.PreCheckEnvironment(t) },
+		ProtoV6ProviderFactories: acctest.ProtoV6ProviderFactories,
+		CheckDestroy:             testAccCheckIdentityProviderDestroy,
+		ErrorCheck:               acctest.ErrorCheck(t),
 		Steps: []resource.TestStep{
 			{
 				Config: testAccIdentityProviderConfig_Apple1(resourceName, name),
@@ -656,10 +653,10 @@ func TestAccIdentityProvider_Paypal(t *testing.T) {
 	name := resourceName
 
 	resource.Test(t, resource.TestCase{
-		PreCheck:          func() { acctest.PreCheckEnvironment(t) },
-		ProviderFactories: acctest.ProviderFactories,
-		CheckDestroy:      testAccCheckIdentityProviderDestroy,
-		ErrorCheck:        acctest.ErrorCheck(t),
+		PreCheck:                 func() { acctest.PreCheckEnvironment(t) },
+		ProtoV6ProviderFactories: acctest.ProtoV6ProviderFactories,
+		CheckDestroy:             testAccCheckIdentityProviderDestroy,
+		ErrorCheck:               acctest.ErrorCheck(t),
 		Steps: []resource.TestStep{
 			{
 				Config: testAccIdentityProviderConfig_Paypal1(resourceName, name),
@@ -716,10 +713,10 @@ func TestAccIdentityProvider_Microsoft(t *testing.T) {
 	name := resourceName
 
 	resource.Test(t, resource.TestCase{
-		PreCheck:          func() { acctest.PreCheckEnvironment(t) },
-		ProviderFactories: acctest.ProviderFactories,
-		CheckDestroy:      testAccCheckIdentityProviderDestroy,
-		ErrorCheck:        acctest.ErrorCheck(t),
+		PreCheck:                 func() { acctest.PreCheckEnvironment(t) },
+		ProtoV6ProviderFactories: acctest.ProtoV6ProviderFactories,
+		CheckDestroy:             testAccCheckIdentityProviderDestroy,
+		ErrorCheck:               acctest.ErrorCheck(t),
 		Steps: []resource.TestStep{
 			{
 				Config: testAccIdentityProviderConfig_Microsoft1(resourceName, name),
@@ -774,10 +771,10 @@ func TestAccIdentityProvider_Github(t *testing.T) {
 	name := resourceName
 
 	resource.Test(t, resource.TestCase{
-		PreCheck:          func() { acctest.PreCheckEnvironment(t) },
-		ProviderFactories: acctest.ProviderFactories,
-		CheckDestroy:      testAccCheckIdentityProviderDestroy,
-		ErrorCheck:        acctest.ErrorCheck(t),
+		PreCheck:                 func() { acctest.PreCheckEnvironment(t) },
+		ProtoV6ProviderFactories: acctest.ProtoV6ProviderFactories,
+		CheckDestroy:             testAccCheckIdentityProviderDestroy,
+		ErrorCheck:               acctest.ErrorCheck(t),
 		Steps: []resource.TestStep{
 			{
 				Config: testAccIdentityProviderConfig_Github1(resourceName, name),
@@ -835,19 +832,19 @@ func TestAccIdentityProvider_OIDC(t *testing.T) {
 	image := base64.StdEncoding.EncodeToString(data)
 
 	resource.Test(t, resource.TestCase{
-		PreCheck:          func() { acctest.PreCheckEnvironment(t) },
-		ProviderFactories: acctest.ProviderFactories,
-		CheckDestroy:      testAccCheckIdentityProviderDestroy,
-		ErrorCheck:        acctest.ErrorCheck(t),
+		PreCheck:                 func() { acctest.PreCheckEnvironment(t) },
+		ProtoV6ProviderFactories: acctest.ProtoV6ProviderFactories,
+		CheckDestroy:             testAccCheckIdentityProviderDestroy,
+		ErrorCheck:               acctest.ErrorCheck(t),
 		Steps: []resource.TestStep{
 			{
 				Config: testAccIdentityProviderConfig_OIDCFull(resourceName, name, image),
 				Check: resource.ComposeTestCheckFunc(
 					resource.TestCheckResourceAttr(resourceFullName, "login_button_icon.#", "1"),
-					resource.TestMatchResourceAttr(resourceFullName, "login_button_icon.0.id", regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)),
+					resource.TestMatchResourceAttr(resourceFullName, "login_button_icon.0.id", verify.P1ResourceIDRegexp),
 					resource.TestMatchResourceAttr(resourceFullName, "login_button_icon.0.href", regexp.MustCompile(`^https:\/\/uploads\.pingone\.((eu)|(com)|(asia)|(ca))\/environments\/[a-zA-Z0-9-]*\/images\/[a-zA-Z0-9-]*_[a-zA-Z0-9-]*_original\.png$`)),
 					resource.TestCheckResourceAttr(resourceFullName, "icon.#", "1"),
-					resource.TestMatchResourceAttr(resourceFullName, "icon.0.id", regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)),
+					resource.TestMatchResourceAttr(resourceFullName, "icon.0.id", verify.P1ResourceIDRegexp),
 					resource.TestMatchResourceAttr(resourceFullName, "icon.0.href", regexp.MustCompile(`^https:\/\/uploads\.pingone\.((eu)|(com)|(asia)|(ca))\/environments\/[a-zA-Z0-9-]*\/images\/[a-zA-Z0-9-]*_[a-zA-Z0-9-]*_original\.png$`)),
 					resource.TestCheckResourceAttr(resourceFullName, "facebook.#", "0"),
 					resource.TestCheckResourceAttr(resourceFullName, "google.#", "0"),
@@ -910,10 +907,10 @@ func TestAccIdentityProvider_OIDC(t *testing.T) {
 				Config: testAccIdentityProviderConfig_OIDCFull(resourceName, name, image),
 				Check: resource.ComposeTestCheckFunc(
 					resource.TestCheckResourceAttr(resourceFullName, "login_button_icon.#", "1"),
-					resource.TestMatchResourceAttr(resourceFullName, "login_button_icon.0.id", regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)),
+					resource.TestMatchResourceAttr(resourceFullName, "login_button_icon.0.id", verify.P1ResourceIDRegexp),
 					resource.TestMatchResourceAttr(resourceFullName, "login_button_icon.0.href", regexp.MustCompile(`^https:\/\/uploads\.pingone\.((eu)|(com)|(asia)|(ca))\/environments\/[a-zA-Z0-9-]*\/images\/[a-zA-Z0-9-]*_[a-zA-Z0-9-]*_original\.png$`)),
 					resource.TestCheckResourceAttr(resourceFullName, "icon.#", "1"),
-					resource.TestMatchResourceAttr(resourceFullName, "icon.0.id", regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)),
+					resource.TestMatchResourceAttr(resourceFullName, "icon.0.id", verify.P1ResourceIDRegexp),
 					resource.TestMatchResourceAttr(resourceFullName, "icon.0.href", regexp.MustCompile(`^https:\/\/uploads\.pingone\.((eu)|(com)|(asia)|(ca))\/environments\/[a-zA-Z0-9-]*\/images\/[a-zA-Z0-9-]*_[a-zA-Z0-9-]*_original\.png$`)),
 					resource.TestCheckResourceAttr(resourceFullName, "facebook.#", "0"),
 					resource.TestCheckResourceAttr(resourceFullName, "google.#", "0"),
@@ -946,99 +943,107 @@ func TestAccIdentityProvider_OIDC(t *testing.T) {
 	})
 }
 
-// func TestAccIdentityProvider_SAML(t *testing.T) {
-// 	t.Parallel()
+func TestAccIdentityProvider_SAML(t *testing.T) {
+	t.Parallel()
 
-// 	resourceName := acctest.ResourceNameGen()
-// 	resourceFullName := fmt.Sprintf("pingone_identity_provider.%s", resourceName)
+	resourceName := acctest.ResourceNameGen()
+	resourceFullName := fmt.Sprintf("pingone_identity_provider.%s", resourceName)
 
-// 	environmentName := acctest.ResourceNameGenEnvironment()
+	name := resourceName
 
-// 	name := resourceName
-
-// 	licenseID := os.Getenv("PINGONE_LICENSE_ID")
-
-// 	resource.Test(t, resource.TestCase{
-// 		PreCheck:          func() { acctest.PreCheckEnvironment(t) },
-// 		ProviderFactories: acctest.ProviderFactories,
-// 		CheckDestroy:      testAccCheckIdentityProviderDestroy,
-// 		ErrorCheck:        acctest.ErrorCheck(t),
-// 		Steps: []resource.TestStep{
-// 			{
-// 				Config: testAccIdentityProviderConfig_SAMLFull(resourceName, name),
-// 				Check: resource.ComposeTestCheckFunc(
-// 					resource.TestCheckResourceAttr(resourceFullName, "facebook.#", "0"),
-// 					resource.TestCheckResourceAttr(resourceFullName, "google.#", "0"),
-// 					resource.TestCheckResourceAttr(resourceFullName, "linkedin.#", "0"),
-// 					resource.TestCheckResourceAttr(resourceFullName, "yahoo.#", "0"),
-// 					resource.TestCheckResourceAttr(resourceFullName, "amazon.#", "0"),
-// 					resource.TestCheckResourceAttr(resourceFullName, "twitter.#", "0"),
-// 					resource.TestCheckResourceAttr(resourceFullName, "apple.#", "0"),
-// 					resource.TestCheckResourceAttr(resourceFullName, "paypal.#", "0"),
-// 					resource.TestCheckResourceAttr(resourceFullName, "microsoft.#", "0"),
-// 					resource.TestCheckResourceAttr(resourceFullName, "github.#", "0"),
-// 					resource.TestCheckResourceAttr(resourceFullName, "openid_connect.#", "0"),
-// 					resource.TestCheckResourceAttr(resourceFullName, "saml.#", "1"),
-// 					resource.TestCheckResourceAttr(resourceFullName, "saml.0.authentication_request_signed", "true"),
-// 					resource.TestCheckResourceAttr(resourceFullName, "saml.0.idp_entity_id", "idp:entity"),
-// 					resource.TestCheckResourceAttr(resourceFullName, "saml.0.sp_entity_id", "sp:entity"),
-// 					resource.TestCheckResourceAttr(resourceFullName, "saml.0.idp_verification_certificate_ids", "https://www.pingidentity.com/discovery"),
-// 					resource.TestMatchResourceAttr(resourceFullName, "saml.0.sp_signing_key_id", regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)),
-// 					resource.TestCheckResourceAttr(resourceFullName, "saml.0.sso_binding", "HTTP_POST"),
-// 					resource.TestCheckResourceAttr(resourceFullName, "saml.0.sso_endpoint", "https://www.pingidentity.com/sso"),
-// 				),
-// 			},
-// 			{
-// 				Config: testAccIdentityProviderConfig_SAMLMinimal(resourceName, name),
-// 				Check: resource.ComposeTestCheckFunc(
-// 					resource.TestCheckResourceAttr(resourceFullName, "facebook.#", "0"),
-// 					resource.TestCheckResourceAttr(resourceFullName, "google.#", "0"),
-// 					resource.TestCheckResourceAttr(resourceFullName, "linkedin.#", "0"),
-// 					resource.TestCheckResourceAttr(resourceFullName, "yahoo.#", "0"),
-// 					resource.TestCheckResourceAttr(resourceFullName, "amazon.#", "0"),
-// 					resource.TestCheckResourceAttr(resourceFullName, "twitter.#", "0"),
-// 					resource.TestCheckResourceAttr(resourceFullName, "apple.#", "0"),
-// 					resource.TestCheckResourceAttr(resourceFullName, "paypal.#", "0"),
-// 					resource.TestCheckResourceAttr(resourceFullName, "microsoft.#", "0"),
-// 					resource.TestCheckResourceAttr(resourceFullName, "github.#", "0"),
-// 					resource.TestCheckResourceAttr(resourceFullName, "openid_connect.#", "0"),
-// 					resource.TestCheckResourceAttr(resourceFullName, "saml.#", "1"),
-// 					resource.TestCheckResourceAttr(resourceFullName, "saml.0.authentication_request_signed", ""),
-// 					resource.TestCheckResourceAttr(resourceFullName, "saml.0.idp_entity_id", "idp:entity"),
-// 					resource.TestCheckResourceAttr(resourceFullName, "saml.0.sp_entity_id", ""),
-// 					resource.TestCheckResourceAttr(resourceFullName, "saml.0.idp_verification_certificate_ids.#", "0"),
-// 					resource.TestCheckResourceAttr(resourceFullName, "saml.0.sp_signing_key_id", ""),
-// 					resource.TestCheckResourceAttr(resourceFullName, "saml.0.sso_binding", "HTTP_REDIRECT"),
-// 					resource.TestCheckResourceAttr(resourceFullName, "saml.0.sso_endpoint", "https://www.pingidentity.com/sso"),
-// 				),
-// 			},
-// 			{
-// 				Config: testAccIdentityProviderConfig_SAMLFull(resourceName, name),
-// 				Check: resource.ComposeTestCheckFunc(
-// 					resource.TestCheckResourceAttr(resourceFullName, "facebook.#", "0"),
-// 					resource.TestCheckResourceAttr(resourceFullName, "google.#", "0"),
-// 					resource.TestCheckResourceAttr(resourceFullName, "linkedin.#", "0"),
-// 					resource.TestCheckResourceAttr(resourceFullName, "yahoo.#", "0"),
-// 					resource.TestCheckResourceAttr(resourceFullName, "amazon.#", "0"),
-// 					resource.TestCheckResourceAttr(resourceFullName, "twitter.#", "0"),
-// 					resource.TestCheckResourceAttr(resourceFullName, "apple.#", "0"),
-// 					resource.TestCheckResourceAttr(resourceFullName, "paypal.#", "0"),
-// 					resource.TestCheckResourceAttr(resourceFullName, "microsoft.#", "0"),
-// 					resource.TestCheckResourceAttr(resourceFullName, "github.#", "0"),
-// 					resource.TestCheckResourceAttr(resourceFullName, "openid_connect.#", "0"),
-// 					resource.TestCheckResourceAttr(resourceFullName, "saml.#", "1"),
-// 					resource.TestCheckResourceAttr(resourceFullName, "saml.0.authentication_request_signed", "true"),
-// 					resource.TestCheckResourceAttr(resourceFullName, "saml.0.idp_entity_id", "idp:entity"),
-// 					resource.TestCheckResourceAttr(resourceFullName, "saml.0.sp_entity_id", "sp:entity"),
-// 					resource.TestCheckResourceAttr(resourceFullName, "saml.0.idp_verification_certificate_ids", "https://www.pingidentity.com/discovery"),
-// 					resource.TestMatchResourceAttr(resourceFullName, "saml.0.sp_signing_key_id", regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)),
-// 					resource.TestCheckResourceAttr(resourceFullName, "saml.0.sso_binding", "HTTP_POST"),
-// 					resource.TestCheckResourceAttr(resourceFullName, "saml.0.sso_endpoint", "https://www.pingidentity.com/sso"),
-// 				),
-// 			},
-// 		},
-// 	})
-// }
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { t.Skipf("Test to be re-defined") }, // Needs redefinition
+		ProtoV6ProviderFactories: acctest.ProtoV6ProviderFactories,
+		CheckDestroy:             testAccCheckIdentityProviderDestroy,
+		ErrorCheck:               acctest.ErrorCheck(t),
+		Steps: []resource.TestStep{
+			{
+				Config: testAccIdentityProviderConfig_SAMLFull(resourceName, name),
+				Check: resource.ComposeTestCheckFunc(
+					resource.TestCheckResourceAttr(resourceFullName, "facebook.#", "0"),
+					resource.TestCheckResourceAttr(resourceFullName, "google.#", "0"),
+					resource.TestCheckResourceAttr(resourceFullName, "linkedin.#", "0"),
+					resource.TestCheckResourceAttr(resourceFullName, "yahoo.#", "0"),
+					resource.TestCheckResourceAttr(resourceFullName, "amazon.#", "0"),
+					resource.TestCheckResourceAttr(resourceFullName, "twitter.#", "0"),
+					resource.TestCheckResourceAttr(resourceFullName, "apple.#", "0"),
+					resource.TestCheckResourceAttr(resourceFullName, "paypal.#", "0"),
+					resource.TestCheckResourceAttr(resourceFullName, "microsoft.#", "0"),
+					resource.TestCheckResourceAttr(resourceFullName, "github.#", "0"),
+					resource.TestCheckResourceAttr(resourceFullName, "openid_connect.#", "0"),
+					resource.TestCheckResourceAttr(resourceFullName, "saml.#", "1"),
+					resource.TestCheckResourceAttr(resourceFullName, "saml.0.authentication_request_signed", "true"),
+					resource.TestCheckResourceAttr(resourceFullName, "saml.0.idp_entity_id", "idp:entity"),
+					resource.TestCheckResourceAttr(resourceFullName, "saml.0.sp_entity_id", "sp:entity"),
+					resource.TestCheckResourceAttr(resourceFullName, "saml.0.idp_verification_certificate_ids", "https://www.pingidentity.com/discovery"),
+					resource.TestMatchResourceAttr(resourceFullName, "saml.0.sp_signing_key_id", verify.P1ResourceIDRegexp),
+					resource.TestCheckResourceAttr(resourceFullName, "saml.0.sso_binding", "HTTP_POST"),
+					resource.TestCheckResourceAttr(resourceFullName, "saml.0.sso_endpoint", "https://www.pingidentity.com/sso"),
+					resource.TestCheckResourceAttr(resourceFullName, "saml.0.slo_binding", "HTTP_REDIRECT"),
+					resource.TestCheckResourceAttr(resourceFullName, "saml.0.slo_endpoint", "https://dummy-slo-endpoint.pingidentity.com"),
+					resource.TestCheckResourceAttr(resourceFullName, "saml.0.slo_response_endpoint", "https://dummy-slo-response-endpoint.pingidentity.com"),
+					resource.TestCheckResourceAttr(resourceFullName, "saml.0.slo_window", "1"),
+				),
+			},
+			{
+				Config: testAccIdentityProviderConfig_SAMLMinimal(resourceName, name),
+				Check: resource.ComposeTestCheckFunc(
+					resource.TestCheckResourceAttr(resourceFullName, "facebook.#", "0"),
+					resource.TestCheckResourceAttr(resourceFullName, "google.#", "0"),
+					resource.TestCheckResourceAttr(resourceFullName, "linkedin.#", "0"),
+					resource.TestCheckResourceAttr(resourceFullName, "yahoo.#", "0"),
+					resource.TestCheckResourceAttr(resourceFullName, "amazon.#", "0"),
+					resource.TestCheckResourceAttr(resourceFullName, "twitter.#", "0"),
+					resource.TestCheckResourceAttr(resourceFullName, "apple.#", "0"),
+					resource.TestCheckResourceAttr(resourceFullName, "paypal.#", "0"),
+					resource.TestCheckResourceAttr(resourceFullName, "microsoft.#", "0"),
+					resource.TestCheckResourceAttr(resourceFullName, "github.#", "0"),
+					resource.TestCheckResourceAttr(resourceFullName, "openid_connect.#", "0"),
+					resource.TestCheckResourceAttr(resourceFullName, "saml.#", "1"),
+					resource.TestCheckResourceAttr(resourceFullName, "saml.0.authentication_request_signed", ""),
+					resource.TestCheckResourceAttr(resourceFullName, "saml.0.idp_entity_id", "idp:entity"),
+					resource.TestCheckResourceAttr(resourceFullName, "saml.0.sp_entity_id", ""),
+					resource.TestCheckResourceAttr(resourceFullName, "saml.0.idp_verification_certificate_ids.#", "0"),
+					resource.TestCheckResourceAttr(resourceFullName, "saml.0.sp_signing_key_id", ""),
+					resource.TestCheckResourceAttr(resourceFullName, "saml.0.sso_binding", "HTTP_REDIRECT"),
+					resource.TestCheckResourceAttr(resourceFullName, "saml.0.sso_endpoint", "https://www.pingidentity.com/sso"),
+					resource.TestCheckResourceAttr(resourceFullName, "saml.0.slo_binding", ""),
+					resource.TestCheckResourceAttr(resourceFullName, "saml.0.slo_endpoint", ""),
+					resource.TestCheckResourceAttr(resourceFullName, "saml.0.slo_response_endpoint", ""),
+					resource.TestCheckResourceAttr(resourceFullName, "saml.0.slo_window", "0"),
+				),
+			},
+			{
+				Config: testAccIdentityProviderConfig_SAMLFull(resourceName, name),
+				Check: resource.ComposeTestCheckFunc(
+					resource.TestCheckResourceAttr(resourceFullName, "facebook.#", "0"),
+					resource.TestCheckResourceAttr(resourceFullName, "google.#", "0"),
+					resource.TestCheckResourceAttr(resourceFullName, "linkedin.#", "0"),
+					resource.TestCheckResourceAttr(resourceFullName, "yahoo.#", "0"),
+					resource.TestCheckResourceAttr(resourceFullName, "amazon.#", "0"),
+					resource.TestCheckResourceAttr(resourceFullName, "twitter.#", "0"),
+					resource.TestCheckResourceAttr(resourceFullName, "apple.#", "0"),
+					resource.TestCheckResourceAttr(resourceFullName, "paypal.#", "0"),
+					resource.TestCheckResourceAttr(resourceFullName, "microsoft.#", "0"),
+					resource.TestCheckResourceAttr(resourceFullName, "github.#", "0"),
+					resource.TestCheckResourceAttr(resourceFullName, "openid_connect.#", "0"),
+					resource.TestCheckResourceAttr(resourceFullName, "saml.#", "1"),
+					resource.TestCheckResourceAttr(resourceFullName, "saml.0.authentication_request_signed", "true"),
+					resource.TestCheckResourceAttr(resourceFullName, "saml.0.idp_entity_id", "idp:entity"),
+					resource.TestCheckResourceAttr(resourceFullName, "saml.0.sp_entity_id", "sp:entity"),
+					resource.TestCheckResourceAttr(resourceFullName, "saml.0.idp_verification_certificate_ids", "https://www.pingidentity.com/discovery"),
+					resource.TestMatchResourceAttr(resourceFullName, "saml.0.sp_signing_key_id", verify.P1ResourceIDRegexp),
+					resource.TestCheckResourceAttr(resourceFullName, "saml.0.sso_binding", "HTTP_POST"),
+					resource.TestCheckResourceAttr(resourceFullName, "saml.0.sso_endpoint", "https://www.pingidentity.com/sso"),
+					resource.TestCheckResourceAttr(resourceFullName, "saml.0.slo_binding", "HTTP_REDIRECT"),
+					resource.TestCheckResourceAttr(resourceFullName, "saml.0.slo_endpoint", "https://dummy-slo-endpoint.pingidentity.com"),
+					resource.TestCheckResourceAttr(resourceFullName, "saml.0.slo_response_endpoint", "https://dummy-slo-response-endpoint.pingidentity.com"),
+					resource.TestCheckResourceAttr(resourceFullName, "saml.0.slo_window", "1"),
+				),
+			},
+		},
+	})
+}
 
 func TestAccIdentityProvider_ChangeProvider(t *testing.T) {
 	t.Parallel()
@@ -1049,10 +1054,10 @@ func TestAccIdentityProvider_ChangeProvider(t *testing.T) {
 	name := resourceName
 
 	resource.Test(t, resource.TestCase{
-		PreCheck:          func() { acctest.PreCheckEnvironment(t) },
-		ProviderFactories: acctest.ProviderFactories,
-		CheckDestroy:      testAccCheckIdentityProviderDestroy,
-		ErrorCheck:        acctest.ErrorCheck(t),
+		PreCheck:                 func() { acctest.PreCheckEnvironment(t) },
+		ProtoV6ProviderFactories: acctest.ProtoV6ProviderFactories,
+		CheckDestroy:             testAccCheckIdentityProviderDestroy,
+		ErrorCheck:               acctest.ErrorCheck(t),
 		Steps: []resource.TestStep{
 			{
 				Config: testAccIdentityProviderConfig_Apple1(resourceName, name),
@@ -1537,38 +1542,43 @@ resource "pingone_identity_provider" "%[2]s" {
 		`, acctest.GenericSandboxEnvironment(), resourceName, name)
 }
 
-// func testAccIdentityProviderConfig_SAMLFull(resourceName, name string) string {
-// 	return fmt.Sprintf(`
-// 		%[1]s
-// 		resource "pingone_identity_provider" "%[2]s" {
-// 			environment_id = data.pingone_environment.general_test.id
-// 			name = "%[3]s"
+func testAccIdentityProviderConfig_SAMLFull(resourceName, name string) string {
+	return fmt.Sprintf(`
+		%[1]s
 
-// 			saml {
-// 				authentication_request_signed = true
-// 				idp_entity_id = "idp:entity"
-// 				sp_entity_id = "sp:entity"
-// 				idp_verification_certificate_ids = []
-// 				// sp_signing_key_id =
-// 				sso_binding = "HTTP_POST"
-// 				sso_endpoint = "https://www.pingidentity.com/sso"
-// 			}
-// 		}
-// 		`, acctest.GenericSandboxEnvironment(), resourceName, name)
-// }
+resource "pingone_identity_provider" "%[2]s" {
+  environment_id = data.pingone_environment.general_test.id
+  name           = "%[3]s"
 
-// func testAccIdentityProviderConfig_SAMLMinimal(resourceName, name string) string {
-// 	return fmt.Sprintf(`
-// 		%[1]s
-// 		resource "pingone_identity_provider" "%[2]s" {
-// 			environment_id = data.pingone_environment.general_test.id
-// 			name = "%[3]s"
+  saml {
+    authentication_request_signed    = true
+    idp_entity_id                    = "idp:entity"
+    sp_entity_id                     = "sp:entity"
+    idp_verification_certificate_ids = []
+    // sp_signing_key_id = 
+    sso_binding           = "HTTP_POST"
+    sso_endpoint          = "https://www.pingidentity.com/sso"
+    slo_binding           = "HTTP_REDIRECT"
+    slo_endpoint          = "https://dummy-slo-endpoint.pingidentity.com"
+    slo_response_endpoint = "https://dummy-slo-response-endpoint.pingidentity.com"
+    slo_window            = 1
+  }
+}
+		`, acctest.GenericSandboxEnvironment(), resourceName, name)
+}
 
-// 			saml {
-// 				idp_entity_id = "idp:entity"
-// 				sso_binding = "HTTP_REDIRECT"
-// 				sso_endpoint = "https://www.pingidentity.com/sso"
-// 			}
-// 		}
-// 		`, acctest.GenericSandboxEnvironment(), resourceName, name)
-// }
+func testAccIdentityProviderConfig_SAMLMinimal(resourceName, name string) string {
+	return fmt.Sprintf(`
+		%[1]s
+resource "pingone_identity_provider" "%[2]s" {
+  environment_id = data.pingone_environment.general_test.id
+  name           = "%[3]s"
+
+  saml {
+    idp_entity_id = "idp:entity"
+    sso_binding   = "HTTP_REDIRECT"
+    sso_endpoint  = "https://www.pingidentity.com/sso"
+  }
+}
+		`, acctest.GenericSandboxEnvironment(), resourceName, name)
+}

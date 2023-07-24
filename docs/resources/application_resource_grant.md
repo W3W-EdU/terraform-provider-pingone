@@ -2,12 +2,14 @@
 page_title: "pingone_application_resource_grant Resource - terraform-provider-pingone"
 subcategory: "SSO"
 description: |-
-  Resource to create and manage a resource grant for an application configured in PingOne.
+  Resource to create and manage a resource grant for administrator defined applications or built-in system applications configured in PingOne.
 ---
 
 # pingone_application_resource_grant (Resource)
 
-Resource to create and manage a resource grant for an application configured in PingOne.
+Resource to create and manage a resource grant for administrator defined applications or built-in system applications configured in PingOne.
+
+-> Resource grants can be mapped to administrator defined applications that are managed through the `pingone_application` resource, and built-in system applications that are managed through the `pingone_system_application` resource.
 
 ## Example Usage
 
@@ -16,18 +18,18 @@ resource "pingone_environment" "my_environment" {
   # ...
 }
 
-resource "pingone_application" "my_application" {
+resource "pingone_application" "my_awesome_spa" {
   # ...
 }
 
 data "pingone_resource" "openid_resource" {
-  environment_id = var.environment_id
+  environment_id = pingone_environment.my_environment.id
 
   name = "openid"
 }
 
 data "pingone_resource_scope" "openid_email" {
-  environment_id = var.environment_id
+  environment_id = pingone_environment.my_environment.id
   resource_id    = data.pingone_resource.openid_resource.id
 
   name = "email"
@@ -35,7 +37,7 @@ data "pingone_resource_scope" "openid_email" {
 
 resource "pingone_application_resource_grant" "foo" {
   environment_id = pingone_environment.my_environment.id
-  application_id = pingone_application.my_application.id
+  application_id = pingone_application.my_awesome_spa.id
 
   resource_id = data.pingone_resource.openid_resource.id
 
@@ -50,10 +52,10 @@ resource "pingone_application_resource_grant" "foo" {
 
 ### Required
 
-- `application_id` (String) The ID of the application to create the resource grant for.
-- `environment_id` (String) The ID of the environment to create the application resource grant in.
-- `resource_id` (String) The ID of the protected resource associated with this grant.
-- `scopes` (Set of String) A list of IDs of the scopes associated with this grant.
+- `application_id` (String) The ID of the application to create the resource grant for.  The value for `application_id` may come from the `id` attribute of the `pingone_application` or `pingone_system_application` resources or data sources.  Must be a valid PingOne resource ID.  This field is immutable and will trigger a replace plan if changed.
+- `environment_id` (String) The ID of the environment to create the application resource grant in.  Must be a valid PingOne resource ID.  This field is immutable and will trigger a replace plan if changed.
+- `resource_id` (String) The ID of the protected resource associated with this grant.  Must be a valid PingOne resource ID.  This field is immutable and will trigger a replace plan if changed.
+- `scopes` (Set of String) A list of IDs of the scopes associated with this grant.  When using the "openid" resource, the "openid" scope should not be included.
 
 ### Read-Only
 
@@ -61,7 +63,7 @@ resource "pingone_application_resource_grant" "foo" {
 
 ## Import
 
-Import is supported using the following syntax:
+Import is supported using the following syntax, where attributes in `<>` brackets are replaced with the relevant ID.  For example, `<environment_id>` should be replaced with the ID of the environment to import from.
 
 ```shell
 $ terraform import pingone_application_resource_grant.example <environment_id>/<application_id>/<grant_id>

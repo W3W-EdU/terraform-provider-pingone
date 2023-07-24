@@ -52,10 +52,21 @@ resource "pingone_sign_on_policy_action" "my_policy_mfa" {
     ip_reputation_high_risk      = true
     geovelocity_anomaly_detected = true
     anonymous_network_detected   = true
+
+    user_attribute_equals {
+      attribute_reference = "$${user.mfaEnabled}"
+      value_boolean       = true
+    }
+
+    user_attribute_equals {
+      attribute_reference = "$${user.lifecycle.status}"
+      value               = "ACCOUNT_OK"
+    }
   }
 
   mfa {
     device_sign_on_policy_id = var.my_device_sign_on_policy_id
+    no_device_mode           = "BYPASS"
   }
 }
 ```
@@ -66,7 +77,7 @@ resource "pingone_sign_on_policy_action" "my_policy_mfa" {
 ### Required
 
 - `environment_id` (String) The ID of the environment to create the sign on policy in.
-- `name` (String) A string that specifies the resource name. The name must be unique within the environment, and can consist of either a string of alphanumeric letters, underscore, hyphen, period `^[a-zA-Z0-9_. -]+$` or an absolute URI if the string contains a `:` character.
+- `name` (String) A string that specifies the resource name. The name must be unique within the environment, and can consist of either a string of alphanumeric letters, underscore, hyphen, period `^[a-zA-Z0-9_.-]+$` or an absolute URI if the string contains a `:` character.
 
 ### Optional
 
@@ -78,7 +89,7 @@ resource "pingone_sign_on_policy_action" "my_policy_mfa" {
 
 ## Import
 
-Import is supported using the following syntax:
+Import is supported using the following syntax, where attributes in `<>` brackets are replaced with the relevant ID.  For example, `<environment_id>` should be replaced with the ID of the environment to import from.
 
 ```shell
 $ terraform import pingone_sign_on_policy.example <environment_id>/<sign_on_policy_id>

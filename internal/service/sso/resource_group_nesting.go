@@ -38,14 +38,14 @@ func ResourceGroupNesting() *schema.Resource {
 				ForceNew:         true,
 			},
 			"group_id": {
-				Description:      "The ID of the environment to create the group in.",
+				Description:      "The ID of the parent group to assign the nested group to.",
 				Type:             schema.TypeString,
 				Required:         true,
 				ValidateDiagFunc: validation.ToDiagFunc(verify.ValidP1ResourceID),
 				ForceNew:         true,
 			},
 			"nested_group_id": {
-				Description:      "The ID of the environment to create the group in.",
+				Description:      "The ID of the group to configure as a nested group.",
 				Type:             schema.TypeString,
 				Required:         true,
 				ValidateDiagFunc: validation.ToDiagFunc(verify.ValidP1ResourceID),
@@ -63,9 +63,7 @@ func ResourceGroupNesting() *schema.Resource {
 func resourceGroupNestingCreate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	p1Client := meta.(*client.Client)
 	apiClient := p1Client.API.ManagementAPIClient
-	ctx = context.WithValue(ctx, management.ContextServerVariables, map[string]string{
-		"suffix": p1Client.API.Region.URLSuffix,
-	})
+
 	var diags diag.Diagnostics
 
 	groupNesting := *management.NewGroupNesting(d.Get("nested_group_id").(string)) // GroupNesting |  (optional)
@@ -73,7 +71,7 @@ func resourceGroupNestingCreate(ctx context.Context, d *schema.ResourceData, met
 	resp, diags := sdk.ParseResponse(
 		ctx,
 
-		func() (interface{}, *http.Response, error) {
+		func() (any, *http.Response, error) {
 			return apiClient.GroupsApi.CreateGroupNesting(ctx, d.Get("environment_id").(string), d.Get("group_id").(string)).GroupNesting(groupNesting).Execute()
 		},
 		"CreateGroupNesting",
@@ -94,15 +92,13 @@ func resourceGroupNestingCreate(ctx context.Context, d *schema.ResourceData, met
 func resourceGroupNestingRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	p1Client := meta.(*client.Client)
 	apiClient := p1Client.API.ManagementAPIClient
-	ctx = context.WithValue(ctx, management.ContextServerVariables, map[string]string{
-		"suffix": p1Client.API.Region.URLSuffix,
-	})
+
 	var diags diag.Diagnostics
 
 	resp, diags := sdk.ParseResponse(
 		ctx,
 
-		func() (interface{}, *http.Response, error) {
+		func() (any, *http.Response, error) {
 			return apiClient.GroupsApi.ReadOneGroupNesting(ctx, d.Get("environment_id").(string), d.Get("group_id").(string), d.Id()).Execute()
 		},
 		"ReadOneGroupNesting",
@@ -128,21 +124,19 @@ func resourceGroupNestingRead(ctx context.Context, d *schema.ResourceData, meta 
 func resourceGroupNestingDelete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	p1Client := meta.(*client.Client)
 	apiClient := p1Client.API.ManagementAPIClient
-	ctx = context.WithValue(ctx, management.ContextServerVariables, map[string]string{
-		"suffix": p1Client.API.Region.URLSuffix,
-	})
+
 	var diags diag.Diagnostics
 
 	_, diags = sdk.ParseResponse(
 		ctx,
 
-		func() (interface{}, *http.Response, error) {
+		func() (any, *http.Response, error) {
 			r, err := apiClient.GroupsApi.DeleteGroupNesting(ctx, d.Get("environment_id").(string), d.Get("group_id").(string), d.Id()).Execute()
 			return nil, r, err
 		},
 		"DeleteGroupNesting",
 		sdk.CustomErrorResourceNotFoundWarning,
-		sdk.DefaultRetryable,
+		nil,
 	)
 	if diags.HasError() {
 		return diags

@@ -29,8 +29,16 @@ func SweepClient(ctx context.Context) (*client.Client, error) {
 		ForceDelete:   true,
 	}
 
-	return config.APIClient(ctx)
+	return config.APIClient(ctx, getProviderTestingVersion())
 
+}
+
+func getProviderTestingVersion() string {
+	returnVar := "dev"
+	if v := os.Getenv("PINGONE_TESTING_PROVIDER_VERSION"); v != "" {
+		returnVar = v
+	}
+	return returnVar
 }
 
 func FetchTaggedEnvironments(ctx context.Context, apiClient *management.APIClient) ([]management.Environment, error) {
@@ -43,7 +51,7 @@ func FetchTaggedEnvironmentsByPrefix(ctx context.Context, apiClient *management.
 
 	resp, diags := sdk.ParseResponse(
 		ctx,
-		func() (interface{}, *http.Response, error) {
+		func() (any, *http.Response, error) {
 			return apiClient.EnvironmentsApi.ReadAllEnvironments(ctx).Filter(filter).Execute()
 		},
 		"ReadAllEnvironments",
@@ -105,13 +113,14 @@ func CreateTestEnvironment(ctx context.Context, apiClient *management.APIClient,
 	productBOMItems = append(productBOMItems, *management.NewBillOfMaterialsProductsInner(management.ENUMPRODUCTTYPE_ONE_MFA))
 	productBOMItems = append(productBOMItems, *management.NewBillOfMaterialsProductsInner(management.ENUMPRODUCTTYPE_ONE_RISK))
 	productBOMItems = append(productBOMItems, *management.NewBillOfMaterialsProductsInner(management.ENUMPRODUCTTYPE_ONE_AUTHORIZE))
+	productBOMItems = append(productBOMItems, *management.NewBillOfMaterialsProductsInner(management.ENUMPRODUCTTYPE_ONE_CREDENTIALS))
 
 	environment.SetBillOfMaterials(*management.NewBillOfMaterials(productBOMItems))
 
 	resp, diags := sdk.ParseResponse(
 		ctx,
 
-		func() (interface{}, *http.Response, error) {
+		func() (any, *http.Response, error) {
 			return apiClient.EnvironmentsApi.CreateEnvironmentActiveLicense(ctx).Environment(environment).Execute()
 		},
 		"CreateEnvironmentActiveLicense",
@@ -132,7 +141,7 @@ func CreateTestEnvironment(ctx context.Context, apiClient *management.APIClient,
 
 			return nil
 		},
-		sdk.DefaultRetryable,
+		nil,
 	)
 	if diags.HasError() {
 		return fmt.Errorf("Cannot create environment `%s`", environment.GetName())
@@ -147,7 +156,7 @@ func CreateTestEnvironment(ctx context.Context, apiClient *management.APIClient,
 	_, diags = sdk.ParseResponse(
 		ctx,
 
-		func() (interface{}, *http.Response, error) {
+		func() (any, *http.Response, error) {
 			return apiClient.PopulationsApi.CreatePopulation(ctx, environmentID).Population(population).Execute()
 		},
 		"CreatePopulation",
